@@ -7,4 +7,5 @@ for t in ghost-tracker rereport heat lanes; do
   [ -f "$t/build.py" ] && { echo "== build $t"; python3 "$t/build.py" || echo "!! $t build failed, keeping previous data"; }
   mkdir -p "dist/$t"; cp -r "$t/site/." "dist/$t/"
 done
+echo "== summary"; python3 deploy/summary.py dist/summary.json || echo "!! summary failed"
 echo "assembled $(date -Is)"
