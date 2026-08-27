@@ -1,7 +1,0 @@
-[Unit]
-Description=Nightly rebuild of NYC civic tools data
-[Timer]
-OnCalendar=*-*-* 04:30
-Persistent=true
-[Install]
-WantedBy=timers.target

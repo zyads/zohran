@@ -1,9 +1,0 @@
-[Unit]
-Description=NYC civic tools static site
-After=network.target
-[Service]
-WorkingDirectory=%h/work/apps/zohran/dist
-ExecStart=/usr/bin/python3 -m http.server 8090 --bind 127.0.0.1
-Restart=on-failure
-[Install]
-WantedBy=default.target
