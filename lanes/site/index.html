@@ -3,98 +3,298 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lane Blockage Map — NYC</title>
+<title>Lane Blockage Map — NYC civic tools</title>
+<meta name="description" content="Where New Yorkers report blocked bike lanes, how often those reports close with no action, and where buses crawl.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#fafaf7;--fg:#1a1a1a;--muted:#5f6368;--line:#dcdcd6;--card:#fff;--accent:#0b5fa5;--hot:#c0392b;--warm:#e67e22;--cool:#2e86c1;--bus:#6c3483;--land:#ecebe4;--water:#fafaf7}
-@media(prefers-color-scheme:dark){:root{--bg:#121416;--fg:#e8e8e8;--muted:#9aa0a6;--line:#2c3136;--card:#1b1e21;--accent:#6cb4ee;--hot:#ff6b5b;--warm:#f5a453;--cool:#5dade2;--bus:#c39bd3;--land:#1f2428;--water:#121416}}
+:root{
+  --bg:#FAF8F3;--fg:#141414;--muted:#6B6860;--line:#E6E2D8;--card:#FFFFFF;
+  --accent:#D4491E;--accent2:#1F5FA8;--ok:#2E7D4F;
+  --r1:#F1D5C7;--r2:#EBB49B;--r3:#E38C68;--r4:#D4491E;
+  --land:#FFFFFF;--water:#FAF8F3;--glow:0;--shadow:none;
+  --serif:"Instrument Serif",Georgia,"Times New Roman",serif;
+  --sans:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+:root[data-theme="dark"]{
+  --bg:#101010;--fg:#F2EFE8;--muted:#9C978C;--line:#262626;--card:#181818;
+  --accent:#E8633A;--accent2:#4A86D0;--ok:#4AA070;
+  --r1:#5A3F35;--r2:#8F4A2F;--r3:#C4562E;--r4:#F0693F;
+  --land:#161616;--water:#101010;--glow:1;--shadow:0 8px 24px rgba(0,0,0,.35);
+}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#101010;--fg:#F2EFE8;--muted:#9C978C;--line:#262626;--card:#181818;
+  --accent:#E8633A;--accent2:#4A86D0;--ok:#4AA070;
+  --r1:#5A3F35;--r2:#8F4A2F;--r3:#C4562E;--r4:#F0693F;
+  --land:#161616;--water:#101010;--glow:1;--shadow:0 8px 24px rgba(0,0,0,.35);
+}}
 *{box-sizing:border-box}
-body{margin:0;font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--fg)}
-main{max-width:980px;margin:0 auto;padding:16px}
-h1{font-size:1.6rem;margin:.2em 0}h2{font-size:1.15rem;margin:1.6em 0 .5em}
-p{margin:.5em 0}a{color:var(--accent)}
-.sub{color:var(--muted)}
-.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0}
-.tile{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
-.tile b{display:block;font-size:1.5rem;line-height:1.2}.tile span{color:var(--muted);font-size:.85rem}
-.mapwrap{position:relative;background:var(--card);border:1px solid var(--line);border-radius:8px;overflow:hidden}
-svg{display:block;width:100%;height:auto}
-.land{fill:var(--land);stroke:var(--line);stroke-width:.6}
-.pt{cursor:pointer;stroke:#0000;stroke-width:6}.pt:hover{stroke:var(--fg);stroke-opacity:.35}
-.seg{stroke:var(--bus);stroke-width:2.2;stroke-linecap:round;cursor:pointer;opacity:.9}
-.lbl{font-size:9px;fill:var(--muted);pointer-events:none;text-anchor:middle}
-.tip{position:absolute;pointer-events:none;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:6px 9px;font-size:.85rem;max-width:260px;box-shadow:0 2px 8px #0003;display:none;z-index:2}
-.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:.85rem;color:var(--muted);margin:8px 0}
-.sw{display:inline-block;width:12px;height:12px;border-radius:50%;vertical-align:-1px;margin-right:4px}
-.controls{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:.9rem;margin:8px 0}
-table{width:100%;border-collapse:collapse;font-size:.9rem;background:var(--card);border:1px solid var(--line);border-radius:8px}
-th,td{padding:6px 8px;text-align:left;border-top:1px solid var(--line);vertical-align:top}
-th{border-top:0;color:var(--muted);font-weight:600;font-size:.8rem;text-transform:uppercase;letter-spacing:.03em}
-td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-.scroll{overflow-x:auto}
-.bar{height:8px;border-radius:4px;background:linear-gradient(90deg,var(--cool),var(--warm) 60%,var(--hot))}
-details{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin:10px 0}
-summary{cursor:pointer;font-weight:600}
-button{font:inherit;padding:4px 10px;border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:6px;cursor:pointer}
-button[aria-pressed=true]{background:var(--accent);color:#fff;border-color:var(--accent)}
-footer{color:var(--muted);font-size:.85rem;margin:30px 0 10px}
+html{scroll-behavior:smooth}
+body{margin:0;font:17px/1.6 var(--sans);background:var(--bg);color:var(--fg);-webkit-font-smoothing:antialiased}
+a{color:var(--accent2);text-decoration:none;border-bottom:1px solid transparent}
+a:hover{border-bottom-color:currentColor}
+h1,h2,h3{font-family:var(--serif);font-weight:400;letter-spacing:-.01em;margin:0}
+h1{font-size:clamp(34px,6vw,40px);line-height:1.1}
+h2{font-size:30px;line-height:1.15}
+.cap{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:500}
+.muted{color:var(--muted)}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+
+/* sticky top bar */
+.top{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;gap:16px;height:56px}
+.brand{font-family:var(--serif);font-size:clamp(19px,5vw,22px);color:var(--fg);border:0;white-space:nowrap}
+.nav{display:flex;gap:4px;margin-left:auto;overflow-x:auto;scrollbar-width:none}
+.nav::-webkit-scrollbar{display:none}
+.nav a{color:var(--muted);font-size:14px;font-weight:500;padding:6px 10px;border-radius:999px;border:0;white-space:nowrap}
+.nav a:hover{color:var(--fg);background:var(--line)}
+.nav a[aria-current]{color:var(--fg);background:var(--card);border:1px solid var(--line)}
+.theme{flex:none;width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer;display:grid;place-items:center;padding:0}
+.theme svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.theme .moon{display:none}
+:root[data-theme="dark"] .theme .sun{display:none}
+:root[data-theme="dark"] .theme .moon{display:block}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]) .theme .sun{display:none}:root:not([data-theme="light"]) .theme .moon{display:block}}
+
+/* hero */
+.hero{padding:56px 0 40px;display:grid;grid-template-columns:1fr;gap:28px;border-bottom:1px solid var(--line)}
+.hero .lede{font-size:19px;line-height:1.55;color:var(--muted);max-width:52ch;margin:14px 0 0}
+.big{font-family:var(--serif);font-size:clamp(84px,14vw,120px);line-height:.95;letter-spacing:-.03em;color:var(--fg)}
+.big small{font-size:.5em;color:var(--muted);letter-spacing:0}
+.bigwrap .cap{margin-top:8px;display:block}
+.bigwrap p{margin:10px 0 0;max-width:36ch;color:var(--muted);font-size:15px;line-height:1.5}
+@media(min-width:760px){.hero{grid-template-columns:1.1fr .9fr;align-items:end;padding:72px 0 48px}.bigwrap{text-align:right}.bigwrap p{margin-left:auto}}
+
+/* stat row */
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:28px 0 8px}
+@media(min-width:760px){.stats{grid-template-columns:repeat(4,1fr)}}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;transition:transform .2s ease;box-shadow:var(--shadow)}
+.stat:hover{transform:translateY(-2px)}
+.stat b{display:block;font-family:var(--serif);font-weight:400;font-size:40px;line-height:1;letter-spacing:-.02em}
+.stat b small{font-size:.5em;color:var(--muted)}
+.stat>span{display:block;margin-top:8px;font-size:13px;color:var(--muted);line-height:1.4}
+
+/* sections */
+section{padding:44px 0 8px}
+.sec-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 16px;margin-bottom:8px}
+.sec-head .cap{margin-left:auto}
+.sub{color:var(--muted);max-width:66ch;margin:8px 0 18px;font-size:15px;line-height:1.55}
+
+/* controls */
+.controls{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin:0 0 14px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{font:500 13px/1 var(--sans);padding:9px 14px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:all .15s}
+.chip i{width:10px;height:10px;border-radius:50%;display:inline-block;background:var(--r4)}
+.chip i.bus{width:14px;height:3px;border-radius:2px;background:var(--accent2)}
+.chip[aria-pressed=true]{color:var(--fg);border-color:var(--fg)}
+.chip[aria-pressed=false] i{opacity:.35}
+.seg{display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:3px;overflow-x:auto;max-width:100%;scrollbar-width:none;margin-left:auto}
+.seg::-webkit-scrollbar{display:none}
+.seg button{font:500 13px/1 var(--sans);padding:8px 13px;border:0;background:none;color:var(--muted);border-radius:999px;cursor:pointer;white-space:nowrap;transition:all .15s}
+.seg button[aria-pressed=true]{background:var(--fg);color:var(--bg)}
+@media(max-width:640px){.seg{margin-left:0}}
+
+/* map */
+.mapcard{position:relative;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow)}
+.mapcard svg{display:block;width:100%;height:auto;background:var(--water);touch-action:pan-y}
+.land{fill:var(--land);stroke:var(--line);stroke-width:1;stroke-linejoin:round}
+.lbl{font:500 11px var(--sans);letter-spacing:.14em;fill:var(--muted);text-anchor:middle;pointer-events:none;opacity:.85}
+.pt{cursor:pointer;stroke:var(--card);stroke-width:1;transition:opacity .25s,stroke .15s}
+.pt:hover,.pt.on{stroke:var(--fg);stroke-width:1.5}
+.halo{pointer-events:none;opacity:calc(var(--glow)*.3);filter:blur(5px)}
+.seg-l{stroke:var(--accent2);stroke-width:2.5;stroke-linecap:round;cursor:pointer;opacity:.85;transition:opacity .25s,stroke-width .15s}
+.seg-l:hover{stroke-width:4;opacity:1}
+.seg-hit{stroke:transparent;stroke-width:14;stroke-linecap:round;cursor:pointer}
+.dim{opacity:.1!important}
+.tip{position:absolute;z-index:3;pointer-events:none;display:none;min-width:210px;max-width:280px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:14px;line-height:1.45;box-shadow:0 8px 28px rgba(0,0,0,.14)}
+.tip .t{font-family:var(--serif);font-size:19px;line-height:1.15;margin-bottom:6px}
+.tip .k{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.tip .v{font-family:var(--mono);font-size:13px}
+.tip .row{display:flex;justify-content:space-between;gap:12px;border-top:1px solid var(--line);padding:5px 0 0;margin-top:5px}
+.tip .bar{margin-top:8px}
+.maplegend{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center;padding:12px 16px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+.ramp{display:inline-flex;gap:3px;vertical-align:middle;margin:0 6px}
+.ramp i{width:14px;height:8px;border-radius:2px;display:block}
+.sizes{display:inline-flex;align-items:center;gap:4px;margin-left:6px}
+.sizes i{display:block;border-radius:50%;border:1px solid var(--muted)}
+.maplegend .busk{display:inline-block;width:18px;height:3px;border-radius:2px;background:var(--accent2);vertical-align:middle;margin-right:6px}
+.maplegend .spacer{flex:1}
+
+/* bars */
+.bar{height:8px;border-radius:4px;background:var(--line);overflow:hidden;min-width:60px}
+.bar b{display:block;height:100%;border-radius:4px;background:var(--accent);width:0;transition:width .6s cubic-bezier(.2,.7,.2,1)}
+.bar.blue b{background:var(--accent2)}
+.cell-bar{display:flex;align-items:center;gap:10px}
+.cell-bar .bar{flex:1}
+.cell-bar .num{min-width:3.2em;text-align:right}
+
+/* tables */
+.tblcard{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow)}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{padding:12px 14px;text-align:left;border-top:1px solid var(--line);vertical-align:middle}
+thead th{border-top:0;font-size:12px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.08em;padding-top:14px;padding-bottom:10px}
+td.n,th.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap;font-size:14px}
+td.rank{color:var(--muted);font-family:var(--mono);font-size:13px;width:2.5em}
+tbody tr{transition:background .15s}
+tbody tr:hover{background:color-mix(in srgb,var(--line) 40%,transparent)}
+tbody tr{animation:rise .4s ease-out both}
+tbody tr:nth-child(n+40){animation:none}
+@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.more{margin:14px 0 0}
+.btn{font:500 14px var(--sans);padding:10px 18px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
+.btn:hover{border-color:var(--fg)}
+@media(max-width:640px){
+  .tblcard{background:none;border:0;box-shadow:none}
+  table,tbody,tr,td{display:block}
+  thead{display:none}
+  tbody tr{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 14px;margin-bottom:10px}
+  td{border:0;padding:4px 0;display:flex;justify-content:space-between;gap:12px;align-items:center;font-size:14px}
+  td.n{text-align:right}
+  td::before{content:attr(data-l);font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-family:var(--sans);flex:none}
+  td.rank{position:absolute;opacity:0;height:0;padding:0;overflow:hidden}
+  td.title{display:block;font-family:var(--serif);font-size:20px;line-height:1.2;padding-bottom:6px}
+  td.title::before{content:none}
+  td .cell-bar{flex:1;justify-content:flex-end}
+  td .cell-bar .bar{max-width:140px}
+  .stat b{font-size:34px}
+}
+
+/* methodology + footer */
+details{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:6px 20px;margin:40px 0 0}
+summary{cursor:pointer;font-family:var(--serif);font-size:24px;padding:12px 0;list-style:none;display:flex;align-items:center;gap:12px}
+summary::-webkit-details-marker{display:none}
+summary::before{content:"";width:8px;height:8px;border-right:1.5px solid var(--muted);border-bottom:1.5px solid var(--muted);transform:rotate(-45deg);transition:transform .2s;flex:none}
+details[open] summary::before{transform:rotate(45deg)}
+details p{margin:10px 0 14px;font-size:15px;line-height:1.6;color:var(--muted)}
+details p b{color:var(--fg);font-weight:600}
+code{font-family:var(--mono);font-size:.9em}
+footer{margin:48px 0 40px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:13px;line-height:1.7;display:flex;flex-wrap:wrap;gap:6px 24px}
+footer a{color:var(--muted)}
+
+/* reveal on load */
+.rev{opacity:0;transform:translateY(8px);animation:rise .4s ease-out forwards}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.rev{opacity:1;transform:none}.bar b{transition:none}}
 </style>
 </head>
 <body>
-<main>
-<h1>Lane Blockage Map</h1>
-<p class="sub">Where New Yorkers report blocked bike lanes, how often those reports close with no action, and where buses crawl. Public data only, rebuilt from scratch each run.</p>
+<header class="top"><div class="wrap">
+  <a class="brand" href="../">NYC civic tools</a>
+  <nav class="nav" aria-label="Tools">
+    <a href="../ghost-tracker/">Ghost tracker</a>
+    <a href="../rereport/">Re-report</a>
+    <a href="../heat/">Heat</a>
+    <a href="../lanes/" aria-current="page">Lanes</a>
+  </nav>
+  <button class="theme" id="theme" aria-label="Toggle theme">
+    <svg class="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    <svg class="moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+  </button>
+</div></header>
 
-<div class="tiles" id="tiles"></div>
-
-<div class="controls">
-  <label><input type="checkbox" id="showPts" checked> Bike-lane complaint hotspots</label>
-  <label><input type="checkbox" id="showBus" checked> Slowest bus segments</label>
-  <span id="boroBtns"></span>
+<main class="wrap">
+<div class="hero">
+  <div class="rev">
+    <span class="cap">Lanes · Bike lanes and bus speeds</span>
+    <h1 style="margin-top:10px">Lane Blockage Map</h1>
+    <p class="lede">Where New Yorkers report blocked bike lanes, how often those reports close with nothing done, and where buses crawl.</p>
+  </div>
+  <div class="bigwrap rev" style="animation-delay:.1s">
+    <div class="big"><span id="bigN" class="num" style="font-family:var(--serif)">0</span><small>%</small></div>
+    <span class="cap">closed without action</span>
+    <p id="bigSub"></p>
+  </div>
 </div>
-<div class="mapwrap" id="mapwrap">
-  <svg id="map" viewBox="0 0 1000 900" role="img" aria-label="Map of NYC lane blockage hotspots"></svg>
-  <div class="tip" id="tip"></div>
-</div>
-<div class="legend">
-  <span>Dot size = number of complaints</span>
-  <span><i class="sw" style="background:var(--cool)"></i>mostly acted on</span>
-  <span><i class="sw" style="background:var(--warm)"></i>mixed</span>
-  <span><i class="sw" style="background:var(--hot)"></i>mostly closed without action</span>
-  <span><i class="sw" style="background:var(--bus);border-radius:2px;height:4px"></i>slowest bus segments</span>
-</div>
 
-<h2>By borough</h2>
-<div class="scroll"><table id="boroTbl"></table></div>
+<div class="stats" id="tiles"></div>
 
-<h2>Top hotspots <span class="sub" id="hsNote"></span></h2>
-<p class="sub">Each row is one grid cell of roughly 110 by 85 meters. "No action" is the share of closed reports whose resolution text says nothing was observed, no violation was found, or the report was referred or duplicated.</p>
-<div class="scroll"><table id="hsTbl"></table></div>
-<p><button id="moreHs">Show more</button></p>
+<section id="map-section">
+  <div class="sec-head"><h2>The map</h2><span class="cap">Dot colour = share closed without action · size = reports</span></div>
+  <div class="controls">
+    <div class="chips">
+      <button class="chip" id="showPts" aria-pressed="true"><i></i>Bike-lane complaint hotspots</button>
+      <button class="chip" id="showBus" aria-pressed="true"><i class="bus"></i>Slowest bus segments</button>
+    </div>
+    <div class="seg" id="boroBtns" role="group" aria-label="Filter by borough"></div>
+  </div>
+  <div class="mapcard" id="mapwrap">
+    <svg id="map" viewBox="0 0 1000 900" role="img" aria-label="Map of NYC lane blockage hotspots"></svg>
+    <div class="tip" id="tip" role="status"></div>
+    <div class="maplegend">
+      <span>Closed without action <span class="ramp"><i style="background:var(--r1)"></i><i style="background:var(--r2)"></i><i style="background:var(--r3)"></i><i style="background:var(--r4)"></i></span> under 50% → over 85%</span>
+      <span>Reports <span class="sizes"><i style="width:6px;height:6px"></i><i style="width:11px;height:11px"></i><i style="width:18px;height:18px"></i></span></span>
+      <span><i class="busk"></i>slowest bus segments</span>
+      <span class="spacer"></span>
+      <span>Tap a mark for detail</span>
+    </div>
+  </div>
+</section>
 
-<h2>Slowest bus route segments <span class="sub" id="busNote"></span></h2>
-<p class="sub">Average speed between consecutive timepoints, weighted by number of bus trips, over the whole month (all hours, all days). Segments with fewer than 200 trips are left out.</p>
-<div class="scroll"><table id="busTbl"></table></div>
+<section>
+  <div class="sec-head"><h2>By borough</h2></div>
+  <p class="sub">Reports, how they were closed, and the average bus speed on the slow-segment ranking.</p>
+  <div class="tblcard"><table id="boroTbl"></table></div>
+</section>
 
-<h2>Slowest routes overall</h2>
-<div class="scroll"><table id="routeTbl"></table></div>
+<section>
+  <div class="sec-head"><h2>Top hotspots</h2><span class="cap" id="hsNote"></span></div>
+  <p class="sub">Each row is one grid cell of roughly 110 by 85 meters. "No action" is the share of closed reports whose resolution text says nothing was observed, no violation was found, or the report was referred or duplicated.</p>
+  <div class="tblcard"><table id="hsTbl"></table></div>
+  <p class="more"><button class="btn" id="moreHs">Show more</button></p>
+</section>
 
-<h2>How this is made</h2>
-<details open><summary>Data and method, in plain words</summary>
+<section>
+  <div class="sec-head"><h2>Slowest bus route segments</h2><span class="cap" id="busNote"></span></div>
+  <p class="sub">Average speed between consecutive timepoints, weighted by number of bus trips, over the whole month (all hours, all days). Segments with fewer than 200 trips are left out.</p>
+  <div class="tblcard"><table id="busTbl"></table></div>
+</section>
+
+<section>
+  <div class="sec-head"><h2>Slowest routes overall</h2></div>
+  <div class="tblcard"><table id="routeTbl"></table></div>
+</section>
+
+<details>
+<summary>How this is made</summary>
 <p><b>Complaints.</b> Every NYC 311 request from the last <span id="mDays"></span> days whose descriptor is "Blocked Bike Lane" (complaint type "Illegal Parking"). 311 has no separate "blocked bus lane" category, so bus lanes are covered only through bus speeds below. Each complaint is snapped to a grid cell by rounding its latitude and longitude to three decimals; cells are ranked by count.</p>
 <p><b>Closed without action.</b> A closed request counts as "no action" when its resolution text matches phrases like "observed no violation", "no evidence", "not necessary", "unable to", "referred", "duplicate", or "does not fall under". It counts as "action" when the text mentions a summons, a correction, a tow, an arrest, or a report. Everything else is "other". This is a text heuristic, not an official measure; the exact patterns are in <code>build.py</code>.</p>
 <p><b>Bus speeds.</b> The MTA publishes hourly average travel time and distance for every route segment between timepoints. We take the latest full month, sum travel time and distance weighted by bus trips, and rank segments and routes by miles per hour. Slow segments include terminals, layovers, and stop dwell time, so a very low number does not by itself prove a blocked lane; it is a place to look.</p>
 <p><b>Map.</b> Points are placed with a simple flat projection over a simplified borough outline; it is not a street map. Use the address in the table to find a spot precisely.</p>
-<p><b>Sources.</b> <a id="src311">311 Service Requests</a> · <a id="srcBus">MTA Bus Route Segment Speeds</a> · <a id="srcBoro">Borough Boundaries</a>. Code: <a href="https://github.com/zyads/zohran">zyads/zohran</a>, directory <code>lanes/</code>. MIT licensed, no tracking.</p>
+<p><b>Sources.</b> <a id="src311">311 Service Requests</a> · <a id="srcBus">MTA Bus Route Segment Speeds</a> · <a id="srcBoro">Borough Boundaries</a>.</p>
 </details>
 
-<footer id="gen"></footer>
+<footer>
+  <span id="gen"></span>
+  <span>Data: NYC 311 and MTA open data</span>
+  <span><a href="https://github.com/zyads/zohran">GitHub: zyads/zohran</a></span>
+  <span>Nothing stored, no tracking</span>
+</footer>
 </main>
+
 <script>
+(function(){
+  const root=document.documentElement,key='nyc-civic-theme';
+  try{const t=localStorage.getItem(key);if(t)root.dataset.theme=t}catch(e){}
+  document.getElementById('theme').onclick=()=>{
+    const dark=root.dataset.theme?root.dataset.theme==='dark':matchMedia('(prefers-color-scheme:dark)').matches;
+    root.dataset.theme=dark?'light':'dark';try{localStorage.setItem(key,root.dataset.theme)}catch(e){}
+  };
+})();
 (async function(){
 const D = await (await fetch('data.json')).json();
 const $ = id => document.getElementById(id);
 const fmt = n => n.toLocaleString('en-US');
 const pct = r => r==null ? '—' : Math.round(r*100)+'%';
+const reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
+
+// ---------- count-up ----------
+function countUp(el,to,dec,dur){
+  if(reduce){el.textContent=to.toFixed(dec);return}
+  const t0=performance.now();
+  (function f(t){const p=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-p,3);el.textContent=(to*e).toFixed(dec);if(p<1)requestAnimationFrame(f)})(t0);
+}
 
 // ---------- projection ----------
 const W=1000,H=900, minLon=-74.27,maxLon=-73.68, minLat=40.49,maxLat=40.92;
@@ -103,80 +303,119 @@ const sx=W/((maxLon-minLon)*k), sy=H/(maxLat-minLat), s=Math.min(sx,sy);
 const ox=(W-(maxLon-minLon)*k*s)/2, oy=(H-(maxLat-minLat)*s)/2;
 const X=lon=>ox+(lon-minLon)*k*s, Y=lat=>oy+(maxLat-lat)*s;
 
-// ---------- tiles ----------
+// ---------- hero + tiles ----------
 const T=D.totals;
-$('tiles').innerHTML=[
- [fmt(T.complaints),'blocked bike lane reports, last '+D.window_days+' days'],
- [pct(T.no_action_rate),'closed without action'],
- [fmt(T.cells),'distinct grid cells reported'],
- [D.bus.slowest_segments[0]?D.bus.slowest_segments[0].mph+' mph':'—','slowest bus segment, '+D.bus.month],
-].map(([b,s])=>`<div class="tile"><b>${b}</b><span>${s}</span></div>`).join('');
+countUp($('bigN'),T.no_action_rate*100,0,600);
+$('bigSub').textContent='of '+fmt(T.complaints)+' blocked bike lane reports in the last '+D.window_days+' days were closed with no summons, tow, or correction.';
+const slow=D.bus.slowest_segments[0];
+const tiles=[
+ [T.complaints,0,'','reports, last '+D.window_days+' days'],
+ [T.cells,0,'','distinct grid cells reported'],
+ [D.hotspots[0]?D.hotspots[0].n:0,0,'','reports at the single worst cell'],
+ [slow?slow.mph:0,2,' mph','slowest bus segment, '+D.bus.month],
+];
+$('tiles').innerHTML=tiles.map(([v,d,u,l],i)=>`<div class="stat rev" style="animation-delay:${.15+i*.06}s"><b><span class="c" data-v="${v}" data-d="${d}">0</span>${u?`<small>${u}</small>`:''}</b><span>${l}</span></div>`).join('');
+$('tiles').querySelectorAll('.c').forEach(e=>{const v=+e.dataset.v,d=+e.dataset.d;if(reduce){e.textContent=d?v.toFixed(d):fmt(v);return}
+  const t0=performance.now();(function f(t){const p=Math.min(1,(t-t0)/600),ez=1-Math.pow(1-p,3),x=v*ez;e.textContent=d?x.toFixed(d):fmt(Math.round(x));if(p<1)requestAnimationFrame(f)})(t0)});
 $('mDays').textContent=D.window_days;
 $('src311').href=D.sources['311']; $('srcBus').href=D.sources.bus_speeds; $('srcBoro').href=D.sources.boroughs;
 $('gen').textContent='Built '+D.generated+' from 311 data since '+D.since+' and MTA speeds for '+D.bus.month+'.';
-$('hsNote').textContent='(top '+D.hotspots.length+' of '+fmt(T.cells)+' cells)';
-$('busNote').textContent='('+D.bus.month+', '+fmt(D.bus.segments_ranked)+' segments ranked)';
+$('hsNote').textContent='Top '+D.hotspots.length+' of '+fmt(T.cells)+' cells';
+$('busNote').textContent=D.bus.month+' · '+fmt(D.bus.segments_ranked)+' segments ranked';
 
 // ---------- map ----------
 const svg=$('map'), NS='http://www.w3.org/2000/svg';
 const el=(t,a)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e};
-const gLand=el('g',{}),gSeg=el('g',{id:'gSeg'}),gPts=el('g',{id:'gPts'}),gLbl=el('g',{});
-svg.append(gLand,gSeg,gPts,gLbl);
+const gLand=el('g',{}),gSeg=el('g',{id:'gSeg'}),gHalo=el('g',{}),gPts=el('g',{id:'gPts'}),gLbl=el('g',{});
+svg.append(gLand,gLbl,gSeg,gHalo,gPts);
 for(const b of D.borough_outline){
   for(const poly of b.polys){
     gLand.append(el('path',{class:'land',d:'M'+poly.map(p=>X(p[0]).toFixed(1)+' '+Y(p[1]).toFixed(1)).join('L')+'Z'}));
   }
 }
-const labels={'Manhattan':[-73.985,40.79],'Bronx':[-73.87,40.87],'Brooklyn':[-73.95,40.63],'Queens':[-73.80,40.72],'Staten Island':[-74.15,40.58]};
+const labels={'Manhattan':[-74.045,40.80],'Bronx':[-73.87,40.87],'Brooklyn':[-73.95,40.63],'Queens':[-73.80,40.72],'Staten Island':[-74.15,40.58]};
 for(const n in labels){const t=el('text',{class:'lbl',x:X(labels[n][0]),y:Y(labels[n][1])});t.textContent=n.toUpperCase();gLbl.append(t)}
-const color=r=> r==null?'var(--muted)': r>=0.75?'var(--hot)': r>=0.5?'var(--warm)':'var(--cool)';
+// sequential single-hue ramp: --line → --accent, four steps
+const color=r=> r==null?'var(--muted)': r>=0.85?'var(--r4)': r>=0.7?'var(--r3)': r>=0.5?'var(--r2)':'var(--r1)';
 const maxN=D.hotspots[0].n;
 const tip=$('tip'),wrap=$('mapwrap');
-function showTip(evt,html){tip.innerHTML=html;tip.style.display='block';move(evt)}
-function move(evt){const r=wrap.getBoundingClientRect();let x=evt.clientX-r.left+12,y=evt.clientY-r.top+12;if(x+270>r.width)x=Math.max(0,x-290);if(y+120>r.height)y=y-130;tip.style.left=x+'px';tip.style.top=y+'px'}
-function hide(){tip.style.display='none'}
+let cur=null;
+function showTip(evt,html){tip.innerHTML=html;tip.style.display='block';move(evt);requestAnimationFrame(()=>{tip.querySelectorAll('.bar b').forEach(b=>b.style.width=b.dataset.w)})}
+function move(evt){const r=wrap.getBoundingClientRect();const tw=tip.offsetWidth||260,th=tip.offsetHeight||110;let x=evt.clientX-r.left+14,y=evt.clientY-r.top+14;if(x+tw>r.width-8)x=Math.max(8,evt.clientX-r.left-tw-14);if(y+th>r.height-8)y=Math.max(8,evt.clientY-r.top-th-14);tip.style.left=x+'px';tip.style.top=y+'px'}
+function hide(){tip.style.display='none';if(cur){cur.classList.remove('on');cur=null}}
+const bind=(node,html)=>{node.addEventListener('pointerenter',e=>showTip(e,html));node.addEventListener('pointermove',move);node.addEventListener('pointerleave',hide);node.addEventListener('click',e=>{e.stopPropagation();showTip(e,html)})};
 for(const s of D.bus.slowest_segments){
-  const l=el('line',{class:'seg',x1:X(s.lon1),y1:Y(s.lat1),x2:X(s.lon2),y2:Y(s.lat2),'data-boro':s.boro});
-  const h=`<b>${s.route} ${s.dir}</b> · ${s.mph} mph<br>${s.from} → ${s.to}<br><span class="sub">${s.miles} mi, ${fmt(s.trips)} trips in ${D.bus.month}</span>`;
-  l.addEventListener('pointerenter',e=>showTip(e,h));l.addEventListener('pointermove',move);l.addEventListener('pointerleave',hide);l.addEventListener('click',e=>{e.stopPropagation();showTip(e,h)});
-  gSeg.append(l);
+  const a={x1:X(s.lon1),y1:Y(s.lat1),x2:X(s.lon2),y2:Y(s.lat2),'data-boro':s.boro};
+  const hit=el('line',{...a,class:'seg-hit'}),l=el('line',{...a,class:'seg-l'});
+  const h=`<div class="t">${s.route} <span class="muted">${s.dir==='N'?'northbound':s.dir==='S'?'southbound':s.dir==='E'?'eastbound':s.dir==='W'?'westbound':s.dir}</span></div>
+    <div>${s.from} → ${s.to}</div>
+    <div class="row"><span class="k">Speed</span><span class="v">${s.mph} mph</span></div>
+    <div class="row"><span class="k">Length</span><span class="v">${s.miles} mi</span></div>
+    <div class="row"><span class="k">Trips, ${D.bus.month}</span><span class="v">${fmt(s.trips)}</span></div>`;
+  bind(hit,h);bind(l,h);
+  gSeg.append(hit,l);
 }
 [...D.hotspots].reverse().forEach(h=>{
-  const c=el('circle',{class:'pt',cx:X(h.lon).toFixed(1),cy:Y(h.lat).toFixed(1),r:(2.2+9*Math.sqrt(h.n/maxN)).toFixed(1),fill:color(h.rate),'fill-opacity':.75,'data-boro':h.boro});
-  const html=`<b>${h.addr||'(no address)'}</b><br>${h.n} reports · ${pct(h.rate)} closed without action<br><span class="sub">${h.desc} · ${h.boro} · busiest hour ${h.peak_hour}:00</span>`;
-  c.addEventListener('pointerenter',e=>showTip(e,html));c.addEventListener('pointermove',move);c.addEventListener('pointerleave',hide);c.addEventListener('click',e=>{e.stopPropagation();showTip(e,html)});
+  const cx=X(h.lon).toFixed(1),cy=Y(h.lat).toFixed(1),r=(2.6+10*Math.sqrt(h.n/maxN)).toFixed(1),fill=color(h.rate);
+  if((h.rate||0)>=0.7)gHalo.append(el('circle',{class:'halo',cx,cy,r:(r*1.8).toFixed(1),fill,'data-boro':h.boro}));
+  const c=el('circle',{class:'pt',cx,cy,r,fill,'fill-opacity':.88,'data-boro':h.boro});
+  const html=`<div class="t">${h.addr||'(no address)'}</div>
+    <div class="muted" style="font-size:13px">${h.boro} · ${h.desc}</div>
+    <div class="row"><span class="k">Reports</span><span class="v">${fmt(h.n)}</span></div>
+    <div class="row"><span class="k">Closed without action</span><span class="v">${pct(h.rate)}</span></div>
+    <div class="bar"><b data-w="${Math.round((h.rate||0)*100)}%"></b></div>
+    <div class="row"><span class="k">Busiest hour</span><span class="v">${h.peak_hour}:00</span></div>`;
+  c.addEventListener('pointerenter',()=>{if(cur)cur.classList.remove('on');cur=c;c.classList.add('on')});
+  bind(c,html);
   gPts.append(c);
 });
 document.addEventListener('click',hide);
-$('showPts').onchange=e=>gPts.style.display=e.target.checked?'':'none';
-$('showBus').onchange=e=>gSeg.style.display=e.target.checked?'':'none';
+// narrow screens: zoom the viewBox onto the dense core so marks stay legible
+const fit=()=>svg.setAttribute('viewBox',innerWidth<640?'330 20 520 720':'0 0 1000 900');
+fit();addEventListener('resize',fit);
+const toggle=(btn,g)=>btn.onclick=()=>{const on=btn.getAttribute('aria-pressed')!=='true';btn.setAttribute('aria-pressed',on);g.forEach(x=>x.style.display=on?'':'none')};
+toggle($('showPts'),[gPts,gHalo]);toggle($('showBus'),[gSeg]);
 let boroFilter='';
 const bb=$('boroBtns');
 for(const b of ['All','Manhattan','Brooklyn','Queens','Bronx','Staten Island']){
   const btn=document.createElement('button');btn.textContent=b;btn.setAttribute('aria-pressed',b==='All');
   btn.onclick=()=>{boroFilter=b==='All'?'':b;[...bb.children].forEach(x=>x.setAttribute('aria-pressed',x===btn));
-    for(const e of svg.querySelectorAll('[data-boro]'))e.style.opacity=(!boroFilter||e.dataset.boro===boroFilter)?'':'0.12';
+    for(const e of svg.querySelectorAll('[data-boro]'))e.classList.toggle('dim',!!boroFilter&&e.dataset.boro!==boroFilter);
     renderHs();};
   bb.append(btn);
 }
 
 // ---------- tables ----------
-const tbl=(id,head,rows)=>$(id).innerHTML='<thead><tr>'+head.map(h=>`<th class="${h.startsWith('#')?'num':''}">${h.replace(/^#/,'')}</th>`).join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+r.map(c=>`<td class="${typeof c==='number'||/^[\d.,%—]+( mph| h)?$/.test(String(c))?'num':''}">${c}</td>`).join('')+'</tr>').join('')+'</tbody>';
+const bar=(v,max,cls,label)=>`<div class="cell-bar"><div class="bar ${cls||''}"><b data-w="${Math.round(v/max*100)}%"></b></div><span class="num">${label}</span></div>`;
+function tbl(id,head,rows){
+  const t=$(id);
+  t.innerHTML='<thead><tr>'+head.map(h=>`<th class="${h.startsWith('#')?'n':''}">${h.replace(/^#/,'')}</th>`).join('')+'</tr></thead><tbody>'+
+    rows.map((r,ri)=>'<tr style="animation-delay:'+Math.min(ri*25,400)+'ms">'+r.map((c,ci)=>{
+      const lab=head[ci].replace(/^#/,''),str=String(c);
+      const isBar=str.startsWith('<div class="cell-bar"');
+      const isNum=!isBar&&(typeof c==='number'||/^[\d.,:%—]+( mph| h)?$/.test(str));
+      const cls=[lab==='#'?'rank':'',isNum?'n':'',ci===(head[0]==='#'?1:0)?'title':''].filter(Boolean).join(' ');
+      return `<td class="${cls}" data-l="${lab}">${c}</td>`}).join('')+'</tr>').join('')+'</tbody>';
+  requestAnimationFrame(()=>t.querySelectorAll('.bar b').forEach(b=>b.style.width=b.dataset.w));
+}
 const boros=Object.entries(D.boroughs).sort((a,b)=>b[1].n-a[1].n);
-tbl('boroTbl',['Borough','#Reports','#Closed w/o action','#Action taken','#Median hours to close','#Avg bus mph'],
-  boros.map(([b,s])=>[b,fmt(s.n),pct(s.rate),fmt(s.action),s.median_resolve_hours==null?'—':s.median_resolve_hours+' h',D.bus.borough_mph[b]!=null?D.bus.borough_mph[b]+' mph':'—']));
+const maxB=boros[0][1].n;
+tbl('boroTbl',['Borough','#Reports','Closed without action','#Action taken','#Median hours to close','#Avg bus mph'],
+  boros.map(([b,s])=>[b,fmt(s.n),bar(s.rate||0,1,'',pct(s.rate)),fmt(s.action),s.median_resolve_hours==null?'—':s.median_resolve_hours+' h',D.bus.borough_mph[b]!=null?D.bus.borough_mph[b]+' mph':'—']));
 let hsLimit=25;
 function renderHs(){
   const rows=D.hotspots.filter(h=>!boroFilter||h.boro===boroFilter);
-  tbl('hsTbl',['#','Location','Borough','#Reports','#Closed w/o action','#Busiest hour'],
-    rows.slice(0,hsLimit).map((h,i)=>[i+1,h.addr||`${h.lat}, ${h.lon}`,h.boro,fmt(h.n),pct(h.rate),h.peak_hour+':00']));
+  tbl('hsTbl',['#','Location','Borough','Reports','#Closed w/o action','#Busiest hour'],
+    rows.slice(0,hsLimit).map((h,i)=>[i+1,h.addr||`${h.lat}, ${h.lon}`,h.boro,bar(h.n,maxN,'',fmt(h.n)),pct(h.rate),h.peak_hour+':00']));
   $('moreHs').style.display=hsLimit<rows.length?'':'none';
 }
 renderHs();
 $('moreHs').onclick=()=>{hsLimit+=50;renderHs()};
-tbl('busTbl',['#','Route','Dir','From → To','Borough','#mph','#Miles','#Trips'],
-  D.bus.slowest_segments.map((s,i)=>[i+1,s.route,s.dir,`${s.from} → ${s.to}`,s.boro,s.mph,s.miles,fmt(s.trips)]));
-tbl('routeTbl',['#','Route','#Avg mph','#Trips in month'],D.bus.slowest_routes.map((r,i)=>[i+1,r.route,r.mph,fmt(r.trips)]));
+const segs=D.bus.slowest_segments,maxMph=Math.max(...segs.map(s=>s.mph));
+tbl('busTbl',['#','Route','Dir','From → To','Borough','Speed','#Miles','#Trips'],
+  segs.map((s,i)=>[i+1,s.route,s.dir,`${s.from} → ${s.to}`,s.boro,bar(s.mph,maxMph,'blue',s.mph+' mph'),s.miles,fmt(s.trips)]));
+const rts=D.bus.slowest_routes,maxR=Math.max(...rts.map(r=>r.mph));
+tbl('routeTbl',['#','Route','Avg speed','#Trips in month'],rts.map((r,i)=>[i+1,r.route,bar(r.mph,maxR,'blue',r.mph+' mph'),fmt(r.trips)]));
 })();
 </script>
 </body>
