@@ -1,0 +1,20 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NYC civic tools</title>
+<style>
+:root{--bg:#fff;--fg:#111;--mut:#666;--card:#f5f5f5;--acc:#0a5}
+@media(prefers-color-scheme:dark){:root{--bg:#111;--fg:#eee;--mut:#999;--card:#1c1c1c;--acc:#3c8}}
+body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.5 system-ui,sans-serif}
+main{max-width:720px;margin:0 auto;padding:2rem 1.2rem}
+h1{font-size:1.9rem;margin:.2em 0}p.lead{color:var(--mut);margin-top:0}
+a.card{display:block;background:var(--card);border-radius:12px;padding:1rem 1.2rem;margin:1rem 0;text-decoration:none;color:inherit;border-left:4px solid var(--acc)}
+a.card b{font-size:1.15rem}a.card span{display:block;color:var(--mut);font-size:.95rem}
+footer{color:var(--mut);font-size:.85rem;margin-top:3rem}footer a{color:inherit}
+</style></head><body><main>
+<h1>NYC civic tools</h1>
+<p class="lead">Small, open-source tools built on NYC Open Data. No accounts, no tracking, nothing stored.</p>
+<a class="card" href="/ghost-tracker/"><b>311 Ghost Tracker</b><span>Which agencies and community boards close complaints without fixing anything — and where the same problem keeps getting re-reported.</span></a>
+<a class="card" href="/rereport/"><b>Re-Report</b><span>Look up a 311 request or address, see its full history, and build a report that carries that history with it.</span></a>
+<a class="card" href="/heat/"><b>Heat &amp; Hot Water Scoreboard</b><span>Buildings and landlords with the worst heat records, by community district. Check an address before you sign.</span></a>
+<a class="card" href="/lanes/"><b>Lane Blockage Map</b><span>Where bike and bus lanes get blocked most, how often those complaints go nowhere, and the slowest bus segments.</span></a>
+<footer>Data refreshes nightly from <a href="https://opendata.cityofnewyork.us/">NYC Open Data</a>. Source: <a href="https://github.com/zyads/zohran">github.com/zyads/zohran</a> · MIT</footer>
+</main></body></html>

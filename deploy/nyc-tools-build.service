@@ -1,0 +1,5 @@
+[Unit]
+Description=Rebuild NYC civic tools data
+[Service]
+Type=oneshot
+ExecStart=%h/work/apps/zohran/deploy/assemble.sh
