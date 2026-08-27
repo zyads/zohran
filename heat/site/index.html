@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NYC Heat & Hot Water Scoreboard</title>
+<meta name="description" content="Which NYC buildings and landlords failed to provide heat or hot water last winter, ranked by community district. Public data from HPD and 311.">
+<style>
+:root{--bg:#fff;--fg:#1a1a1a;--mut:#666;--line:#ddd;--card:#f6f6f4;--acc:#b33a1e;--acc2:#1e5fb3;--warn:#fff3e0}
+@media(prefers-color-scheme:dark){:root{--bg:#141414;--fg:#eee;--mut:#9a9a9a;--line:#333;--card:#1f1f1f;--acc:#ff7a55;--acc2:#7fb0ff;--warn:#332a1a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+main{max-width:920px;margin:0 auto;padding:1rem}
+h1{font-size:1.6rem;margin:.5rem 0 .2rem}h2{font-size:1.2rem;margin:1.6rem 0 .5rem}
+.sub{color:var(--mut);margin:0 0 1rem}
+a{color:var(--acc2)}
+input,select,button{font:inherit;padding:.6rem .7rem;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg)}
+input{width:100%}
+.row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+.row>*{flex:1 1 160px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:.8rem 1rem;margin:.5rem 0}
+.card h3{margin:0 0 .2rem;font-size:1.05rem}
+.stat{display:inline-block;margin:.2rem .9rem .2rem 0;font-size:.95rem}
+.stat b{font-size:1.15rem;color:var(--acc)}
+.chg{font-size:.85rem;color:var(--mut)}
+.links a{margin-right:1rem;font-size:.9rem}
+.meta{color:var(--mut);font-size:.88rem}
+table{width:100%;border-collapse:collapse;font-size:.92rem}
+th,td{text-align:left;padding:.45rem .4rem;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--mut);font-weight:600;font-size:.8rem;text-transform:uppercase;letter-spacing:.03em}
+td.n,th.n{text-align:right;white-space:nowrap}
+.wrap{overflow-x:auto}
+.tabs{display:flex;gap:.4rem;margin:.6rem 0}
+.tabs button{flex:0 0 auto;cursor:pointer}
+.tabs button[aria-pressed=true]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.box{background:var(--warn);border-radius:10px;padding:.8rem 1rem}
+details{margin:.6rem 0}summary{cursor:pointer;font-weight:600}
+footer{margin:2.5rem 0 1rem;color:var(--mut);font-size:.85rem}
+.small{font-size:.85rem}
+.rank{color:var(--mut);width:2.2rem;display:inline-block}
+</style>
+</head>
+<body>
+<main>
+<h1>NYC Heat &amp; Hot Water Scoreboard</h1>
+<p class="sub">Which buildings and landlords failed to provide heat or hot water last winter — from public HPD and 311 records. <span id="built"></span></p>
+
+<div class="box">
+<b>No heat or hot water right now?</b> Call <b>311</b> (or <a href="https://portal.311.nyc.gov/">311 online</a>), then tell your landlord in writing.
+Heat season is <b>Oct 1 – May 31</b>: when it's below 55°F outside between 6am–10pm your apartment must be at least <b>68°F</b>; overnight (10pm–6am) at least <b>62°F</b>, regardless of outside temperature. Hot water must be <b>120°F</b> year-round, all day.
+<details><summary>What happens after you call</summary>
+<p class="small">HPD tries to reach you and the landlord, and may send an inspector. If the inspector confirms the problem they issue a class C (immediately hazardous) violation the landlord must fix within 24 hours; repeat offenders face civil penalties per day. Keep a log of dates, times and indoor temperatures — a cheap thermometer is enough. Everyone in the building should call separately; more calls raise the priority. If you file an HP action in Housing Court, HPD's records and this log are your evidence. Tenant organizations and <a href="https://www.justfix.org/">JustFix</a> can help you write and track it.</p>
+</details>
+</div>
+
+<h2>Look up an address</h2>
+<div class="row">
+  <input id="q" type="search" placeholder="e.g. 1721 Hobart Ave" autocomplete="off" inputmode="search">
+  <select id="qboro"><option value="">Any borough</option><option value="1">Manhattan</option><option value="2">Bronx</option><option value="3">Brooklyn</option><option value="4">Queens</option><option value="5">Staten Island</option></select>
+</div>
+<p class="meta">Only buildings with at least one heat violation or two 311 heat complaints in the last two seasons are listed. Not listed usually means a clean record — check the building on <a href="https://whoownswhat.justfix.org/">Who Owns What</a> to be sure.</p>
+<div id="results"></div>
+
+<h2>Leaderboard</h2>
+<div class="row">
+  <select id="cd"><option value="">Citywide</option></select>
+  <select id="sort"><option value="viol">Most heat violations this season</option><option value="c311">Most 311 heat complaints</option><option value="open">Most still-open violations</option><option value="worse">Biggest increase vs prior season</option></select>
+</div>
+<div class="tabs"><button id="tb" aria-pressed="true">Buildings</button><button id="tl" aria-pressed="false">Landlords</button></div>
+<div id="board" class="wrap"></div>
+<p><button id="more" hidden>Show more</button></p>
+
+<h2>How this is counted</h2>
+<p class="small">
+<b>Heat violations</b> are HPD violations whose notice text mentions heat or hot water, counted by the date the notice was issued, per heating season (Oct 1 – May 31). <b>311 complaints</b> are 311 requests of type "HEAT/HOT WATER" at that address; one complaint is often filed by several tenants, and a complaint is not proof of a violation — HPD only issues one after an inspection confirms it. <b>"Landlord"</b> is the head officer (or owner) named on the building's HPD registration. Landlords who register a different person or LLC for each building appear under several names; <a href="https://whoownswhat.justfix.org/">Who Owns What</a> untangles those portfolios much better, which is why every row links to it. Buildings are ranked by violations first, complaints second. Larger buildings naturally get more complaints; compare with the unit count on HPD Online. Everything here is reproducible from <a href="https://github.com/zyads/zohran/tree/main/heat">the open-source build script</a>.
+</p>
+
+<footer>Data: <a href="https://opendata.cityofnewyork.us/">NYC Open Data</a> (HPD violations, HPD registrations, 311). Built on the shoulders of <a href="https://www.justfix.org/">JustFix</a> / <a href="https://github.com/nycdb/nycdb">nycdb</a>. No tracking, no accounts. MIT — part of <a href="https://github.com/zyads/zohran">zohran</a>.</footer>
+</main>
+
+<script>
+(function(){
+const BORO={1:"Manhattan",2:"Bronx",3:"Brooklyn",4:"Queens",5:"Staten Island"};
+const ABBR={1:"MN",2:"BX",3:"BK",4:"QN",5:"SI"};
+const F={bbl:0,addr:1,zip:2,cd:3,v:4,vp:5,o:6,c:7,cp:8,owner:9,corp:10};
+let D=null, mode="b", shown=50;
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const cdName=c=>c?`${ABBR[c[0]]} CD ${parseInt(c.slice(1),10)}`:"";
+const wow=b=>`https://whoownswhat.justfix.org/bbl/${b}`;
+const hpd=b=>`https://hpdonline.nyc.gov/hpdonline/building/search-results?bbl=${b}`;
+const chg=(a,b)=>b===0?(a>0?"new":""):(a>b?"+":"")+Math.round((a-b)/b*100)+"%";
+
+// street-name normalization for fuzzy match
+const SUB={STREET:"ST",AVENUE:"AVE",AV:"AVE",BOULEVARD:"BLVD",PLACE:"PL",ROAD:"RD",PARKWAY:"PKWY",DRIVE:"DR",LANE:"LN",COURT:"CT",TERRACE:"TER",EAST:"E",WEST:"W",NORTH:"N",SOUTH:"S",SAINT:"ST"};
+function norm(s){return s.toUpperCase().replace(/[^A-Z0-9 ]/g," ").replace(/(\d+)(ST|ND|RD|TH)\b/g,"$1").split(/\s+/).filter(Boolean).map(w=>SUB[w]||w).join(" ");}
+
+function load(){
+  fetch("data.json").then(r=>r.json()).then(d=>{
+    D=d; D.buildings.forEach(b=>b.k=norm(b[F.addr]));
+    $("built").textContent=`Season ${d.season} vs ${d.prior}. Updated ${d.built}.`;
+    const sel=$("cd");
+    d.cds.forEach(c=>{const o=document.createElement("option");o.value=c;o.textContent=`${BORO[c[0]]} — ${cdName(c)}`;sel.appendChild(o);});
+    board();
+  }).catch(()=>{$("board").innerHTML="<p>Could not load data.json — run build.py first.</p>";});
+}
+
+function cardHTML(b){
+  return `<div class="card"><h3>${esc(b[F.addr])} <span class="meta">${BORO[b[F.bbl][0]]} ${esc(b[F.zip])} · ${cdName(b[F.cd])}</span></h3>
+  <div><span class="stat"><b>${b[F.v]}</b> heat violations <span class="chg">(${b[F.vp]} prior season${chg(b[F.v],b[F.vp])?", "+chg(b[F.v],b[F.vp]):""})</span></span>
+  <span class="stat"><b>${b[F.c]}</b> 311 heat complaints <span class="chg">(${b[F.cp]} prior)</span></span>
+  ${b[F.o]?`<span class="stat"><b>${b[F.o]}</b> still open</span>`:""}</div>
+  ${b[F.owner]?`<div class="meta">Registered head officer / owner: ${esc(b[F.owner])}${b[F.corp]&&b[F.corp]!==b[F.owner]?" · "+esc(b[F.corp]):""}</div>`:""}
+  <div class="links"><a href="${wow(b[F.bbl])}" target="_blank" rel="noopener">Who Owns What</a><a href="${hpd(b[F.bbl])}" target="_blank" rel="noopener">HPD Online</a><span class="meta">BBL ${b[F.bbl]}</span></div></div>`;
+}
+
+function search(){
+  const q=$("q").value.trim(), boro=$("qboro").value, out=$("results");
+  if(q.length<3){out.innerHTML="";return;}
+  const nq=norm(q); const m=nq.match(/^(\d+[A-Z]?)\s+(.*)$/);
+  const num=m?m[1]:null, street=m?m[2]:nq;
+  const hits=[];
+  for(const b of D.buildings){
+    if(boro&&b[F.bbl][0]!==boro)continue;
+    const k=b.k;
+    if(num){ if(!k.startsWith(num+" "))continue; if(street&&!k.slice(num.length+1).includes(street))continue; hits.push([0,b]); }
+    else if(k.includes(street)) hits.push([1,b]);
+    if(hits.length>200)break;
+  }
+  // when no exact house number, also allow nearby numbers (same street, ±6)
+  if(num&&hits.length===0&&street){const n=parseInt(num,10);
+    for(const b of D.buildings){ if(boro&&b[F.bbl][0]!==boro)continue; const mm=b.k.match(/^(\d+)\s+(.*)$/); if(!mm)continue;
+      if(Math.abs(parseInt(mm[1],10)-n)<=6&&mm[2].includes(street))hits.push([2,b]); }
+    if(hits.length)out.innerHTML=`<p class="meta">No listed building at that number; showing neighbors on the same street.</p>`+hits.slice(0,10).map(h=>cardHTML(h[1])).join("");
+    else out.innerHTML=`<p class="meta">Not in the list — no heat violations and fewer than two 311 heat complaints recorded in the last two seasons. Verify on <a href="https://whoownswhat.justfix.org/">Who Owns What</a>.</p>`;
+    return;}
+  hits.sort((a,b)=>a[0]-b[0]||b[1][F.v]-a[1][F.v]||b[1][F.c]-a[1][F.c]);
+  out.innerHTML=hits.length?hits.slice(0,15).map(h=>cardHTML(h[1])).join(""):`<p class="meta">Not in the list — no heat violations and fewer than two 311 heat complaints recorded in the last two seasons.</p>`;
+}
+
+function sorter(){
+  const s=$("sort").value;
+  if(mode==="b")return {viol:(a,b)=>b[F.v]-a[F.v]||b[F.c]-a[F.c]||b[F.vp]-a[F.vp],c311:(a,b)=>b[F.c]-a[F.c]||b[F.v]-a[F.v],open:(a,b)=>b[F.o]-a[F.o]||b[F.v]-a[F.v],worse:(a,b)=>(b[F.v]-b[F.vp])-(a[F.v]-a[F.vp])}[s];
+  return {viol:(a,b)=>b.v-a.v||b.c-a.c,c311:(a,b)=>b.c-a.c||b.v-a.v,open:(a,b)=>b.o-a.o||b.v-a.v,worse:(a,b)=>(b.v-b.vp)-(a.v-a.vp)}[s];
+}
+
+function board(){
+  const cd=$("cd").value, el=$("board");
+  if(mode==="b"){
+    let rows=D.buildings.filter(b=>!cd||b[F.cd]===cd); rows=rows.slice().sort(sorter());
+    const tot=rows.reduce((s,b)=>s+b[F.v],0), totp=rows.reduce((s,b)=>s+b[F.vp],0);
+    el.innerHTML=`<p class="meta">${rows.length} buildings · ${tot} heat violations this season (${totp} prior season)</p><table><thead><tr><th>#</th><th>Building</th><th class="n">Violations<br><span class="small">this / prior</span></th><th class="n">Open</th><th class="n">311<br><span class="small">this / prior</span></th><th>Landlord</th></tr></thead><tbody>`+
+      rows.slice(0,shown).map((b,i)=>`<tr><td class="n">${i+1}</td><td><a href="${wow(b[F.bbl])}" target="_blank" rel="noopener">${esc(b[F.addr])}</a><div class="meta">${cd?"":cdName(b[F.cd])+" · "}${esc(b[F.zip])} · <a href="${hpd(b[F.bbl])}" target="_blank" rel="noopener" class="small">HPD</a></div></td><td class="n"><b>${b[F.v]}</b> / ${b[F.vp]}</td><td class="n">${b[F.o]||""}</td><td class="n">${b[F.c]} / ${b[F.cp]}</td><td class="small">${esc(b[F.owner]||b[F.corp]||"—")}</td></tr>`).join("")+"</tbody></table>";
+    $("more").hidden=rows.length<=shown;
+  }else{
+    let rows=D.landlords.filter(L=>!cd||L.cds.includes(cd)); rows=rows.slice().sort(sorter());
+    el.innerHTML=`<p class="meta">${rows.length} landlords (by registered head officer / owner name) ${cd?"with buildings in "+cdName(cd):""} · ranked by total heat violations this season</p><table><thead><tr><th>#</th><th>Landlord (as registered)</th><th class="n">Bldgs</th><th class="n">Violations<br><span class="small">this / prior</span></th><th class="n">Per bldg</th><th class="n">Open</th><th class="n">311</th><th>Districts</th></tr></thead><tbody>`+
+      rows.slice(0,shown).map((L,i)=>`<tr><td class="n">${i+1}</td><td>${esc(L.n)}${L.corps.length?`<div class="meta small">${L.corps.map(esc).join(" · ")}</div>`:""}<div class="meta small">e.g. ${L.ex.map(e=>`<a href="${wow(e[0])}" target="_blank" rel="noopener">${esc(e[1])}</a>`).join(", ")}</div></td><td class="n">${L.b}</td><td class="n"><b>${L.v}</b> / ${L.vp}</td><td class="n">${L.vpb}</td><td class="n">${L.o||""}</td><td class="n">${L.c}</td><td class="small">${L.cds.map(cdName).join(", ")}</td></tr>`).join("")+"</tbody></table>";
+    $("more").hidden=rows.length<=shown;
+  }
+}
+
+let t; $("q").addEventListener("input",()=>{clearTimeout(t);t=setTimeout(search,120);}); $("qboro").addEventListener("change",search);
+$("cd").addEventListener("change",()=>{shown=50;board();}); $("sort").addEventListener("change",()=>{shown=50;board();});
+$("tb").onclick=()=>{mode="b";shown=50;$("tb").setAttribute("aria-pressed","true");$("tl").setAttribute("aria-pressed","false");board();};
+$("tl").onclick=()=>{mode="l";shown=50;$("tl").setAttribute("aria-pressed","true");$("tb").setAttribute("aria-pressed","false");board();};
+$("more").onclick=()=>{shown+=100;board();};
+load();
+})();
+</script>
+</body>
+</html>
