@@ -3,93 +3,337 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>NYC Heat & Hot Water Scoreboard</title>
-<meta name="description" content="Which NYC buildings and landlords failed to provide heat or hot water last winter, ranked by community district. Public data from HPD and 311.">
+<title>Heat &amp; Hot Water Scoreboard — NYC civic tools</title>
+<meta name="description" content="Which NYC buildings and landlords failed to provide heat or hot water this winter, ranked by community district. Public data from HPD and 311.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#fff;--fg:#1a1a1a;--mut:#666;--line:#ddd;--card:#f6f6f4;--acc:#b33a1e;--acc2:#1e5fb3;--warn:#fff3e0}
-@media(prefers-color-scheme:dark){:root{--bg:#141414;--fg:#eee;--mut:#9a9a9a;--line:#333;--card:#1f1f1f;--acc:#ff7a55;--acc2:#7fb0ff;--warn:#332a1a}}
+:root{
+  --bg:#FAF8F3;--fg:#141414;--muted:#6B6860;--line:#E6E2D8;--card:#FFFFFF;
+  --accent:#D4491E;--accent2:#1F5FA8;--ok:#2E7D4F;
+  --track:#EFECE4;--callout:#FBF3EC;--shadow:none;--shadow-hover:0 6px 18px rgba(20,20,20,.06);
+  --serif:"Instrument Serif",Georgia,"Times New Roman",serif;
+  --sans:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#101010;--fg:#F2EFE8;--muted:#9C978C;--line:#262626;--card:#181818;
+  --accent:#E8633A;--accent2:#5B8FD6;--ok:#4BA36F;
+  --track:#222222;--callout:#1D1715;--shadow:0 1px 2px rgba(0,0,0,.4);--shadow-hover:0 8px 24px rgba(0,0,0,.5);
+}}
+:root[data-theme="dark"]{
+  --bg:#101010;--fg:#F2EFE8;--muted:#9C978C;--line:#262626;--card:#181818;
+  --accent:#E8633A;--accent2:#5B8FD6;--ok:#4BA36F;
+  --track:#222222;--callout:#1D1715;--shadow:0 1px 2px rgba(0,0,0,.4);--shadow-hover:0 8px 24px rgba(0,0,0,.5);
+}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-main{max-width:920px;margin:0 auto;padding:1rem}
-h1{font-size:1.6rem;margin:.5rem 0 .2rem}h2{font-size:1.2rem;margin:1.6rem 0 .5rem}
-.sub{color:var(--mut);margin:0 0 1rem}
-a{color:var(--acc2)}
-input,select,button{font:inherit;padding:.6rem .7rem;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg)}
-input{width:100%}
-.row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
-.row>*{flex:1 1 160px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:.8rem 1rem;margin:.5rem 0}
-.card h3{margin:0 0 .2rem;font-size:1.05rem}
-.stat{display:inline-block;margin:.2rem .9rem .2rem 0;font-size:.95rem}
-.stat b{font-size:1.15rem;color:var(--acc)}
-.chg{font-size:.85rem;color:var(--mut)}
-.links a{margin-right:1rem;font-size:.9rem}
-.meta{color:var(--mut);font-size:.88rem}
-table{width:100%;border-collapse:collapse;font-size:.92rem}
-th,td{text-align:left;padding:.45rem .4rem;border-bottom:1px solid var(--line);vertical-align:top}
-th{color:var(--mut);font-weight:600;font-size:.8rem;text-transform:uppercase;letter-spacing:.03em}
-td.n,th.n{text-align:right;white-space:nowrap}
-.wrap{overflow-x:auto}
-.tabs{display:flex;gap:.4rem;margin:.6rem 0}
-.tabs button{flex:0 0 auto;cursor:pointer}
-.tabs button[aria-pressed=true]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
-.box{background:var(--warn);border-radius:10px;padding:.8rem 1rem}
-details{margin:.6rem 0}summary{cursor:pointer;font-weight:600}
-footer{margin:2.5rem 0 1rem;color:var(--mut);font-size:.85rem}
-.small{font-size:.85rem}
-.rank{color:var(--mut);width:2.2rem;display:inline-block}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--fg);font:400 17px/1.6 var(--sans);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+a{color:var(--accent2);text-decoration:none;text-underline-offset:.15em}
+a:hover{text-decoration:underline}
+.wrap{max-width:1040px;margin:0 auto;padding:0 20px}
+.cap{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:500}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:var(--serif);font-weight:400;letter-spacing:-.01em;margin:0}
+h2{font-size:32px;line-height:1.15;margin-bottom:6px}
+.section{padding:56px 0 8px}
+.section-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 24px;margin-bottom:22px}
+.section-head p{margin:0;color:var(--muted);font-size:15px;max-width:60ch}
+
+/* ---------- top bar ---------- */
+.top{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:saturate(1.2) blur(12px);-webkit-backdrop-filter:saturate(1.2) blur(12px);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px;height:56px}
+.wordmark{font-family:var(--serif);font-size:22px;color:var(--fg);white-space:nowrap}
+.wordmark:hover{text-decoration:none;color:var(--accent)}
+.nav{display:flex;align-items:center;gap:4px;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
+.nav::-webkit-scrollbar{display:none}
+.nav a{color:var(--muted);font-size:14px;font-weight:500;padding:6px 10px;border-radius:8px;white-space:nowrap}
+.nav a:hover{color:var(--fg);text-decoration:none;background:var(--line)}
+.nav a[aria-current]{color:var(--fg);background:var(--card);border:1px solid var(--line)}
+.theme{margin-left:6px;flex:0 0 auto;width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer;display:grid;place-items:center;padding:0}
+.theme:hover{border-color:var(--muted)}
+.theme svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.theme .moon{display:none}
+[data-theme="dark"] .theme .sun{display:none}[data-theme="dark"] .theme .moon{display:block}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]) .theme .sun{display:none}:root:not([data-theme="light"]) .theme .moon{display:block}}
+@media(max-width:720px){.nav a:not([aria-current]){display:none}}
+
+/* ---------- hero ---------- */
+.hero{position:relative;padding:72px 0 56px;overflow:hidden}
+.hero::before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 60% 70% at 100% 0%,color-mix(in srgb,var(--accent) 9%,transparent),transparent 70%)}
+.hero .wrap{position:relative;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:40px 64px;align-items:end}
+.hero h1{font-size:clamp(40px,6vw,56px);line-height:1.05;margin:14px 0 18px}
+.hero .lede{font-size:19px;color:var(--muted);max-width:44ch;margin:0}
+.big{display:flex;flex-direction:column;align-items:flex-start}
+.big .n{font-family:var(--serif);font-size:clamp(84px,12vw,120px);line-height:.95;letter-spacing:-.03em;font-variant-numeric:tabular-nums;color:var(--fg)}
+.big .n small{font-size:.5em;color:var(--muted);letter-spacing:0}
+.big .what{margin-top:12px;font-size:17px;color:var(--fg)}
+.delta{display:inline-flex;align-items:center;gap:6px;margin-top:14px;padding:5px 12px 5px 9px;border-radius:999px;font-size:14px;font-weight:500;border:1px solid color-mix(in srgb,var(--accent) 35%,var(--line));background:color-mix(in srgb,var(--accent) 10%,var(--card));color:var(--accent)}
+.delta svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border-top:1px solid var(--line);margin-top:34px;padding-top:18px;grid-column:1/-1}
+.kpi{padding-right:16px}
+.kpi .v{font-family:var(--serif);font-size:30px;line-height:1.1;font-variant-numeric:tabular-nums}
+.kpi .l{color:var(--muted);font-size:14px;margin-top:2px}
+.kpi .l b{color:var(--fg);font-weight:500}
+@media(max-width:820px){.hero{padding:44px 0 40px}.hero .wrap{grid-template-columns:1fr;gap:28px}.hero h1{margin-top:10px}.big .n{font-size:clamp(72px,22vw,104px)}.kpis{grid-template-columns:1fr;gap:12px;margin-top:8px}.kpi{display:flex;align-items:baseline;gap:12px}.kpi .v{font-size:24px;min-width:5.2ch}}
+
+/* ---------- controls ---------- */
+input,select,button{font:inherit;color:var(--fg)}
+.field{position:relative}
+.field input,.field select{width:100%;height:52px;padding:0 16px;border:1px solid var(--line);border-radius:12px;background:var(--card);box-shadow:var(--shadow);transition:border-color .15s}
+.field input{padding-left:46px}
+.field input::placeholder{color:var(--muted)}
+.field svg{position:absolute;left:16px;top:50%;transform:translateY(-50%);width:18px;height:18px;stroke:var(--muted);fill:none;stroke-width:2;stroke-linecap:round;pointer-events:none}
+.field select,.sel select{appearance:none;-webkit-appearance:none;padding-right:38px;cursor:pointer;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' fill='none' stroke='%236B6860' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");background-repeat:no-repeat;background-position:right 14px center}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
+input:hover,select:hover{border-color:var(--muted)}
+.lookup{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:26px 26px 22px;box-shadow:var(--shadow)}
+.lookup .row{display:grid;grid-template-columns:minmax(0,1fr) 200px;gap:10px;margin-top:14px}
+.lookup .note{margin:12px 0 0;color:var(--muted);font-size:14px}
+@media(max-width:640px){.lookup{padding:20px 18px 18px}.lookup .row{grid-template-columns:1fr}}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:18px}
+.sel{position:relative;flex:1 1 220px}
+.sel select{width:100%;height:44px;padding:0 38px 0 14px;border:1px solid var(--line);border-radius:10px;background-color:var(--card);font-size:15px}
+.seg{display:inline-flex;padding:3px;border:1px solid var(--line);border-radius:10px;background:var(--card);flex:0 0 auto}
+.seg button{border:0;background:transparent;color:var(--muted);padding:8px 16px;border-radius:8px;font-weight:500;font-size:15px;cursor:pointer;transition:background .15s,color .15s}
+.seg button[aria-pressed=true]{background:var(--fg);color:var(--bg)}
+@media(max-width:640px){.seg{width:100%;display:flex}.seg button{flex:1}}
+
+/* ---------- callout ---------- */
+.callout{background:var(--callout);border:1px solid color-mix(in srgb,var(--accent) 22%,var(--line));border-radius:14px;padding:22px 26px;display:grid;grid-template-columns:auto 1fr;gap:6px 22px;align-items:start}
+.callout>:not(.mark){grid-column:2}.callout .mark{grid-column:1;grid-row:1/span 4;width:44px;height:44px;border-radius:12px;background:color-mix(in srgb,var(--accent) 12%,transparent);display:grid;place-items:center}
+.callout .mark svg{width:22px;height:22px;stroke:var(--accent);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.callout h3{font-size:24px;line-height:1.2}
+.callout p{margin:0;font-size:16px}
+.callout .rules{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:14px;padding-top:14px;border-top:1px solid color-mix(in srgb,var(--accent) 18%,var(--line))}
+.callout .rules div{font-size:14px;color:var(--muted)}
+.callout .rules b{display:block;font-family:var(--serif);font-size:26px;color:var(--fg);font-weight:400;line-height:1.1;margin-bottom:2px}
+.callout details{margin-top:12px}
+.callout summary{cursor:pointer;color:var(--accent2);font-weight:500;font-size:15px}
+.callout details p{color:var(--muted);font-size:15px;margin-top:8px}
+@media(max-width:640px){.callout{grid-template-columns:1fr;padding:20px 18px}.callout>:not(.mark){grid-column:1}.callout .mark{grid-row:auto}.callout .rules{grid-template-columns:1fr 1fr}}
+
+/* ---------- ranked rows ---------- */
+.board-meta{color:var(--muted);font-size:14px;margin:0 0 12px}
+.board-meta b{color:var(--fg);font-weight:500}
+.list{border-top:1px solid var(--line)}
+.hdr{display:grid;gap:14px;padding:8px 0;border-bottom:1px solid var(--line)}
+.hdr span{white-space:nowrap;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:500}
+.hdr .r{text-align:right}.hdr small{font-size:11px;text-transform:none;letter-spacing:0;opacity:.8}
+.row-b,.hdr.b{grid-template-columns:36px minmax(0,1fr) 150px 60px 90px minmax(0,.7fr)}
+.row-l,.hdr.l{grid-template-columns:36px minmax(0,1.3fr) 56px 150px 72px 60px 70px minmax(0,.8fr)}
+.rr{display:grid;gap:14px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line);animation:rise .38s ease-out both}
+.rr:hover{background:color-mix(in srgb,var(--card) 70%,var(--bg))}
+.rr .rank{font-family:var(--mono);font-size:14px;color:var(--muted);text-align:right;padding-right:6px}
+.rr .name{min-width:0}
+.rr .name a.t{color:var(--fg);font-weight:500;font-size:16px}
+.rr .name .t{color:var(--fg);font-weight:500;font-size:16px}
+.rr .sub{font-size:13px;color:var(--muted);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rr .sub a{color:var(--muted);text-decoration:underline;text-decoration-color:var(--line)}
+.rr .sub a:hover{color:var(--accent2)}
+.rr .r{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:15px}
+.rr .r small{color:var(--muted);font-size:13px}
+.rr .who{font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vb{display:flex;flex-direction:column;gap:5px;align-items:stretch}
+.vb .lbl{display:flex;justify-content:space-between;align-items:baseline;font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:15px}
+.vb .lbl small{color:var(--muted);font-size:12px;margin-left:8px}
+.vb .lbl .up{color:var(--accent)}
+.vb .lbl .down{color:var(--ok)}
+.bar{height:8px;border-radius:4px;background:var(--track);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:4px;background:var(--accent);transform-origin:left;animation:grow .5s ease-out both}
+@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.more{margin:18px 0 0;text-align:center}
+.more button,.btn{height:44px;padding:0 22px;border:1px solid var(--line);border-radius:10px;background:var(--card);cursor:pointer;font-weight:500;font-size:15px;transition:transform .15s,border-color .15s,box-shadow .15s}
+.more button:hover,.btn:hover{border-color:var(--muted);transform:translateY(-2px);box-shadow:var(--shadow-hover)}
+.empty{color:var(--muted);font-size:15px;margin:12px 0}
+@media(max-width:640px){
+  .hdr{display:none}
+  .rr{display:grid;grid-template-columns:32px minmax(0,1fr);gap:4px 12px;padding:14px 0}
+  .rr .rank{align-self:start;padding-top:2px}
+  .rr .name{grid-column:2}
+  .rr .vb{grid-column:2;margin-top:6px}
+  .rr .stats{grid-column:2;display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:6px;font-size:13px;color:var(--muted)}
+  .rr .stats b{font-family:var(--mono);font-weight:500;color:var(--fg);font-variant-numeric:tabular-nums}
+  .rr .who{grid-column:2;white-space:normal;margin-top:2px}
+  .rr .r{display:none}
+}
+@media(min-width:641px){.rr .stats{display:none}}
+
+/* ---------- result cards ---------- */
+.results{display:grid;gap:12px;margin-top:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;box-shadow:var(--shadow);transition:transform .15s,box-shadow .15s;animation:rise .38s ease-out both}
+.card:hover{transform:translateY(-2px);box-shadow:var(--shadow-hover)}
+.card h3{font-family:var(--sans);font-weight:600;font-size:17px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
+.card h3 span{font-weight:400;font-size:14px;color:var(--muted)}
+.card .stats{display:flex;flex-wrap:wrap;gap:10px 28px;margin:12px 0 4px}
+.card .stat b{display:block;font-family:var(--serif);font-size:30px;line-height:1.05;font-weight:400;font-variant-numeric:tabular-nums}
+.card .stat b.bad{color:var(--accent)}
+.card .stat span{font-size:13px;color:var(--muted)}
+.card .stat .chg{font-family:var(--mono);font-size:12px}
+.card .owner{font-size:14px;color:var(--muted);margin-top:6px}
+.card .links{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:12px;font-size:14px;align-items:center}
+.card .links .bbl{color:var(--muted);font-family:var(--mono);font-size:12px;margin-left:auto}
+
+/* ---------- methodology + footer ---------- */
+.method{border:1px solid var(--line);border-radius:14px;background:var(--card);padding:0 24px}
+.method summary{cursor:pointer;padding:18px 0;font-family:var(--serif);font-size:24px;list-style:none;display:flex;justify-content:space-between;align-items:center}
+.method summary::-webkit-details-marker{display:none}
+.method summary::after{content:"+";font-family:var(--sans);color:var(--muted);font-size:22px}
+.method[open] summary::after{content:"–"}
+.method .body{padding:0 0 20px;font-size:15px;color:var(--muted);max-width:72ch}
+.method .body b{color:var(--fg);font-weight:500}
+.method .body p{margin:0 0 10px}
+footer{margin:64px 0 40px;padding-top:24px;border-top:1px solid var(--line);color:var(--muted);font-size:14px;display:flex;flex-wrap:wrap;gap:8px 28px;justify-content:space-between}
+footer a{color:var(--muted);text-decoration:underline;text-decoration-color:var(--line)}
+footer a:hover{color:var(--fg)}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
 </style>
 </head>
 <body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="wordmark" href="../">NYC civic tools</a>
+    <nav class="nav" aria-label="Tools">
+      <a href="../ghost-tracker/">Ghost Tracker</a>
+      <a href="../rereport/">Re-Report</a>
+      <a href="../heat/" aria-current="page">Heat</a>
+      <a href="../lanes/">Lanes</a>
+      <button class="theme" id="theme" type="button" aria-label="Toggle dark mode" title="Toggle theme">
+        <svg class="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        <svg class="moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </button>
+    </nav>
+  </div>
+</header>
+
 <main>
-<h1>NYC Heat &amp; Hot Water Scoreboard</h1>
-<p class="sub">Which buildings and landlords failed to provide heat or hot water last winter — from public HPD and 311 records. <span id="built"></span></p>
+<section class="hero">
+  <div class="wrap">
+    <div>
+      <div class="cap" id="built">Heat season · NYC</div>
+      <h1>Heat &amp; Hot Water Scoreboard</h1>
+      <p class="lede">The buildings and landlords that failed to keep tenants warm this winter, ranked by community district from public HPD and 311 records. Check an address before you sign.</p>
+    </div>
+    <div class="big">
+      <div class="n num" id="heroN" aria-live="polite">—</div>
+      <div class="what">HPD heat &amp; hot water violations, <span id="heroSeason">this season</span></div>
+      <div class="delta" id="delta" hidden><svg viewBox="0 0 24 24"><path d="M6 18L18 6M9 6h9v9"/></svg><span></span></div>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><div class="v num" id="k311">—</div><div class="l">311 heat complaints <b id="k311p"></b></div></div>
+      <div class="kpi"><div class="v num" id="kb">—</div><div class="l">buildings with a heat record</div></div>
+      <div class="kpi"><div class="v num" id="kcd">—</div><div class="l">community districts ranked</div></div>
+    </div>
+  </div>
+</section>
 
-<div class="box">
-<b>No heat or hot water right now?</b> Call <b>311</b> (or <a href="https://portal.311.nyc.gov/">311 online</a>), then tell your landlord in writing.
-Heat season is <b>Oct 1 – May 31</b>: when it's below 55°F outside between 6am–10pm your apartment must be at least <b>68°F</b>; overnight (10pm–6am) at least <b>62°F</b>, regardless of outside temperature. Hot water must be <b>120°F</b> year-round, all day.
-<details><summary>What happens after you call</summary>
-<p class="small">HPD tries to reach you and the landlord, and may send an inspector. If the inspector confirms the problem they issue a class C (immediately hazardous) violation the landlord must fix within 24 hours; repeat offenders face civil penalties per day. Keep a log of dates, times and indoor temperatures — a cheap thermometer is enough. Everyone in the building should call separately; more calls raise the priority. If you file an HP action in Housing Court, HPD's records and this log are your evidence. Tenant organizations and <a href="https://www.justfix.org/">JustFix</a> can help you write and track it.</p>
-</details>
+<section class="section" id="lookup">
+  <div class="wrap">
+    <div class="lookup">
+      <div class="cap">Address lookup</div>
+      <h2>Is your building on the list?</h2>
+      <div class="row">
+        <div class="field">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+          <input id="q" type="search" placeholder="e.g. 1721 Hobart Ave" autocomplete="off" inputmode="search" aria-label="Street address">
+        </div>
+        <div class="field"><select id="qboro" aria-label="Borough"><option value="">Any borough</option><option value="1">Manhattan</option><option value="2">Bronx</option><option value="3">Brooklyn</option><option value="4">Queens</option><option value="5">Staten Island</option></select></div>
+      </div>
+      <p class="note">Only buildings with at least one heat violation or two 311 heat complaints in the last two seasons are listed. Not listed usually means a clean record — confirm on <a href="https://whoownswhat.justfix.org/" target="_blank" rel="noopener">Who Owns What</a>.</p>
+      <div id="results" class="results"></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="board-section">
+  <div class="wrap">
+    <div class="section-head">
+      <div><div class="cap">Leaderboard</div><h2>Who let it get cold</h2></div>
+      <p>Ranked by heat violations this season, then 311 complaints. Bars are relative to the top of the current list.</p>
+    </div>
+    <div class="controls">
+      <div class="seg" role="tablist" aria-label="Rank by"><button id="tb" role="tab" aria-pressed="true">Buildings</button><button id="tl" role="tab" aria-pressed="false">Landlords</button></div>
+      <div class="sel"><select id="cd" aria-label="Community district"><option value="">Citywide</option></select></div>
+      <div class="sel"><select id="sort" aria-label="Sort"><option value="viol">Most heat violations this season</option><option value="c311">Most 311 heat complaints</option><option value="open">Most still-open violations</option><option value="worse">Biggest increase vs prior season</option></select></div>
+    </div>
+    <div id="board"></div>
+    <p class="more"><button id="more" hidden>Show 100 more</button></p>
+  </div>
+</section>
+
+<section class="section" id="report">
+  <div class="wrap">
+    <div class="callout">
+      <div class="mark"><svg viewBox="0 0 24 24"><path d="M10 5a2 2 0 1 1 4 0v9.3a4 4 0 1 1-4 0z"/><path d="M12 9v8"/><circle cx="12" cy="17.5" r="1.5"/></svg></div>
+      <h3>No heat or hot water right now?</h3>
+      <p>Call <b>311</b> (or <a href="https://portal.311.nyc.gov/" target="_blank" rel="noopener">file online</a>), then tell your landlord in writing. Everyone in the building should call separately — more calls raise the priority.</p>
+      <div class="rules">
+        <div><b>68°F</b>by day (6am–10pm) when it's under 55°F outside</div>
+        <div><b>62°F</b>overnight (10pm–6am), whatever the weather</div>
+        <div><b>120°F</b>hot water, all day, all year</div>
+      </div>
+      <details><summary>What happens after you call</summary>
+        <p>Heat season runs Oct 1 – May 31. HPD tries to reach you and the landlord, and may send an inspector. If the inspector confirms the problem they issue a class C (immediately hazardous) violation the landlord must fix within 24 hours; repeat offenders face civil penalties per day. Keep a log of dates, times and indoor temperatures — a cheap thermometer is enough. If you file an HP action in Housing Court, HPD's records and your log are the evidence. Tenant organizations and <a href="https://www.justfix.org/" target="_blank" rel="noopener">JustFix</a> can help you write and track it.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="wrap">
+    <details class="method">
+      <summary>How this is counted</summary>
+      <div class="body">
+        <p><b>Heat violations</b> are HPD violations whose notice text mentions heat or hot water, counted by the date the notice was issued, per heating season (Oct 1 – May 31).</p>
+        <p><b>311 complaints</b> are 311 requests of type "HEAT/HOT WATER" at that address. One complaint is often filed by several tenants, and a complaint is not proof of a violation — HPD only issues one after an inspection confirms it.</p>
+        <p><b>"Landlord"</b> is the head officer (or owner) named on the building's HPD registration. Landlords who register a different person or LLC for each building appear under several names; <a href="https://whoownswhat.justfix.org/" target="_blank" rel="noopener">Who Owns What</a> untangles those portfolios much better, which is why every row links to it.</p>
+        <p>Buildings are ranked by violations first, complaints second. Larger buildings naturally get more complaints; compare with the unit count on HPD Online. Everything here is reproducible from <a href="https://github.com/zyads/zohran/tree/main/heat" target="_blank" rel="noopener">the open-source build script</a>.</p>
+      </div>
+    </details>
+  </div>
+</section>
+
+<div class="wrap">
+<footer>
+  <span>Data: <a href="https://opendata.cityofnewyork.us/">NYC Open Data</a> (HPD violations, HPD registrations, 311) · built on <a href="https://www.justfix.org/">JustFix</a> / <a href="https://github.com/nycdb/nycdb">nycdb</a></span>
+  <span><a href="https://github.com/zyads/zohran">GitHub</a> · MIT · No tracking, no accounts, nothing stored.</span>
+</footer>
 </div>
-
-<h2>Look up an address</h2>
-<div class="row">
-  <input id="q" type="search" placeholder="e.g. 1721 Hobart Ave" autocomplete="off" inputmode="search">
-  <select id="qboro"><option value="">Any borough</option><option value="1">Manhattan</option><option value="2">Bronx</option><option value="3">Brooklyn</option><option value="4">Queens</option><option value="5">Staten Island</option></select>
-</div>
-<p class="meta">Only buildings with at least one heat violation or two 311 heat complaints in the last two seasons are listed. Not listed usually means a clean record — check the building on <a href="https://whoownswhat.justfix.org/">Who Owns What</a> to be sure.</p>
-<div id="results"></div>
-
-<h2>Leaderboard</h2>
-<div class="row">
-  <select id="cd"><option value="">Citywide</option></select>
-  <select id="sort"><option value="viol">Most heat violations this season</option><option value="c311">Most 311 heat complaints</option><option value="open">Most still-open violations</option><option value="worse">Biggest increase vs prior season</option></select>
-</div>
-<div class="tabs"><button id="tb" aria-pressed="true">Buildings</button><button id="tl" aria-pressed="false">Landlords</button></div>
-<div id="board" class="wrap"></div>
-<p><button id="more" hidden>Show more</button></p>
-
-<h2>How this is counted</h2>
-<p class="small">
-<b>Heat violations</b> are HPD violations whose notice text mentions heat or hot water, counted by the date the notice was issued, per heating season (Oct 1 – May 31). <b>311 complaints</b> are 311 requests of type "HEAT/HOT WATER" at that address; one complaint is often filed by several tenants, and a complaint is not proof of a violation — HPD only issues one after an inspection confirms it. <b>"Landlord"</b> is the head officer (or owner) named on the building's HPD registration. Landlords who register a different person or LLC for each building appear under several names; <a href="https://whoownswhat.justfix.org/">Who Owns What</a> untangles those portfolios much better, which is why every row links to it. Buildings are ranked by violations first, complaints second. Larger buildings naturally get more complaints; compare with the unit count on HPD Online. Everything here is reproducible from <a href="https://github.com/zyads/zohran/tree/main/heat">the open-source build script</a>.
-</p>
-
-<footer>Data: <a href="https://opendata.cityofnewyork.us/">NYC Open Data</a> (HPD violations, HPD registrations, 311). Built on the shoulders of <a href="https://www.justfix.org/">JustFix</a> / <a href="https://github.com/nycdb/nycdb">nycdb</a>. No tracking, no accounts. MIT — part of <a href="https://github.com/zyads/zohran">zohran</a>.</footer>
 </main>
 
 <script>
 (function(){
+// theme toggle: system -> explicit light/dark, remembered locally
+const root=document.documentElement;
+try{const t=localStorage.getItem("theme");if(t)root.setAttribute("data-theme",t);}catch(e){}
+document.getElementById("theme").onclick=()=>{
+  const dark=root.getAttribute("data-theme")==="dark"||(!root.getAttribute("data-theme")&&matchMedia("(prefers-color-scheme:dark)").matches);
+  const next=dark?"light":"dark"; root.setAttribute("data-theme",next);
+  try{localStorage.setItem("theme",next);}catch(e){}
+};
+
 const BORO={1:"Manhattan",2:"Bronx",3:"Brooklyn",4:"Queens",5:"Staten Island"};
 const ABBR={1:"MN",2:"BX",3:"BK",4:"QN",5:"SI"};
 const F={bbl:0,addr:1,zip:2,cd:3,v:4,vp:5,o:6,c:7,cp:8,owner:9,corp:10};
 let D=null, mode="b", shown=50;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmt=n=>Number(n).toLocaleString("en-US");
 const cdName=c=>c?`${ABBR[c[0]]} CD ${parseInt(c.slice(1),10)}`:"";
 const wow=b=>`https://whoownswhat.justfix.org/bbl/${b}`;
 const hpd=b=>`https://hpdonline.nyc.gov/hpdonline/building/search-results?bbl=${b}`;
 const chg=(a,b)=>b===0?(a>0?"new":""):(a>b?"+":"")+Math.round((a-b)/b*100)+"%";
+const chgEl=(a,b)=>{const c=chg(a,b);if(!c)return"";const cls=a>b?"up":a<b?"down":"";return `<span class="${cls}">${c}</span>`;};
+const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function countUp(el,to,ms){
+  if(reduce||!("requestAnimationFrame" in window)){el.textContent=fmt(to);return;}
+  const t0=performance.now();
+  (function step(now){const p=Math.min(1,(now-t0)/ms),e=1-Math.pow(1-p,3);el.textContent=fmt(Math.round(to*e));if(p<1)requestAnimationFrame(step);})(t0);
+}
 
 // street-name normalization for fuzzy match
 const SUB={STREET:"ST",AVENUE:"AVE",AV:"AVE",BOULEVARD:"BLVD",PLACE:"PL",ROAD:"RD",PARKWAY:"PKWY",DRIVE:"DR",LANE:"LN",COURT:"CT",TERRACE:"TER",EAST:"E",WEST:"W",NORTH:"N",SOUTH:"S",SAINT:"ST"};
@@ -98,24 +342,35 @@ function norm(s){return s.toUpperCase().replace(/[^A-Z0-9 ]/g," ").replace(/(\d+
 function load(){
   fetch("data.json").then(r=>r.json()).then(d=>{
     D=d; D.buildings.forEach(b=>b.k=norm(b[F.addr]));
-    $("built").textContent=`Season ${d.season} vs ${d.prior}. Updated ${d.built}.`;
+    $("built").textContent=`Heat season ${d.season} · updated ${d.built}`;
+    $("heroSeason").textContent=`season ${d.season}`;
+    const T=d.totals||{};
+    const v=T.viol??d.buildings.reduce((s,b)=>s+b[F.v],0), vp=T.viol_prior??d.buildings.reduce((s,b)=>s+b[F.vp],0);
+    const c=T.c311??d.buildings.reduce((s,b)=>s+b[F.c],0), cp=T.c311_prior??d.buildings.reduce((s,b)=>s+b[F.cp],0);
+    countUp($("heroN"),v,600); countUp($("k311"),c,600); countUp($("kb"),T.buildings??d.buildings.length,600); countUp($("kcd"),d.cds.length,600);
+    if(vp){const pct=Math.round((v-vp)/vp*100);const de=$("delta");de.hidden=false;de.querySelector("span").textContent=`${pct>=0?"+":""}${pct}% vs last season (${fmt(vp)} in ${d.prior})`;
+      if(pct<0){de.style.color="var(--ok)";de.querySelector("path").setAttribute("d","M6 6l12 12M9 18h9V9");}}
+    if(cp)$("k311p").textContent=`(${chg(c,cp)} vs ${d.prior})`;
     const sel=$("cd");
-    d.cds.forEach(c=>{const o=document.createElement("option");o.value=c;o.textContent=`${BORO[c[0]]} — ${cdName(c)}`;sel.appendChild(o);});
+    d.cds.forEach(cd=>{const o=document.createElement("option");o.value=cd;o.textContent=`${BORO[cd[0]]} — ${cdName(cd)}`;sel.appendChild(o);});
     board();
-  }).catch(()=>{$("board").innerHTML="<p>Could not load data.json — run build.py first.</p>";});
+  }).catch(()=>{$("board").innerHTML="<p class='empty'>Could not load data.json — run build.py first.</p>";});
 }
 
-function cardHTML(b){
-  return `<div class="card"><h3>${esc(b[F.addr])} <span class="meta">${BORO[b[F.bbl][0]]} ${esc(b[F.zip])} · ${cdName(b[F.cd])}</span></h3>
-  <div><span class="stat"><b>${b[F.v]}</b> heat violations <span class="chg">(${b[F.vp]} prior season${chg(b[F.v],b[F.vp])?", "+chg(b[F.v],b[F.vp]):""})</span></span>
-  <span class="stat"><b>${b[F.c]}</b> 311 heat complaints <span class="chg">(${b[F.cp]} prior)</span></span>
-  ${b[F.o]?`<span class="stat"><b>${b[F.o]}</b> still open</span>`:""}</div>
-  ${b[F.owner]?`<div class="meta">Registered head officer / owner: ${esc(b[F.owner])}${b[F.corp]&&b[F.corp]!==b[F.owner]?" · "+esc(b[F.corp]):""}</div>`:""}
-  <div class="links"><a href="${wow(b[F.bbl])}" target="_blank" rel="noopener">Who Owns What</a><a href="${hpd(b[F.bbl])}" target="_blank" rel="noopener">HPD Online</a><span class="meta">BBL ${b[F.bbl]}</span></div></div>`;
+function cardHTML(b,i){
+  return `<div class="card" style="animation-delay:${Math.min(i*40,400)}ms"><h3>${esc(b[F.addr])} <span>${BORO[b[F.bbl][0]]} ${esc(b[F.zip])} · ${cdName(b[F.cd])}</span></h3>
+  <div class="stats">
+    <div class="stat"><b class="${b[F.v]?"bad":""}">${b[F.v]}</b><span>heat violations <span class="chg">${b[F.vp]} prior${chg(b[F.v],b[F.vp])?" · "+chg(b[F.v],b[F.vp]):""}</span></span></div>
+    <div class="stat"><b>${b[F.c]}</b><span>311 heat complaints <span class="chg">${b[F.cp]} prior</span></span></div>
+    ${b[F.o]?`<div class="stat"><b class="bad">${b[F.o]}</b><span>still open</span></div>`:""}
+  </div>
+  ${b[F.owner]?`<div class="owner">Registered head officer / owner: ${esc(b[F.owner])}${b[F.corp]&&b[F.corp]!==b[F.owner]?" · "+esc(b[F.corp]):""}</div>`:""}
+  <div class="links"><a href="${wow(b[F.bbl])}" target="_blank" rel="noopener">Who Owns What</a><a href="${hpd(b[F.bbl])}" target="_blank" rel="noopener">HPD Online</a><span class="bbl">BBL ${b[F.bbl]}</span></div></div>`;
 }
 
 function search(){
   const q=$("q").value.trim(), boro=$("qboro").value, out=$("results");
+  if(!D){return;}
   if(q.length<3){out.innerHTML="";return;}
   const nq=norm(q); const m=nq.match(/^(\d+[A-Z]?)\s+(.*)$/);
   const num=m?m[1]:null, street=m?m[2]:nq;
@@ -131,11 +386,11 @@ function search(){
   if(num&&hits.length===0&&street){const n=parseInt(num,10);
     for(const b of D.buildings){ if(boro&&b[F.bbl][0]!==boro)continue; const mm=b.k.match(/^(\d+)\s+(.*)$/); if(!mm)continue;
       if(Math.abs(parseInt(mm[1],10)-n)<=6&&mm[2].includes(street))hits.push([2,b]); }
-    if(hits.length)out.innerHTML=`<p class="meta">No listed building at that number; showing neighbors on the same street.</p>`+hits.slice(0,10).map(h=>cardHTML(h[1])).join("");
-    else out.innerHTML=`<p class="meta">Not in the list — no heat violations and fewer than two 311 heat complaints recorded in the last two seasons. Verify on <a href="https://whoownswhat.justfix.org/">Who Owns What</a>.</p>`;
+    if(hits.length)out.innerHTML=`<p class="empty">No listed building at that number; showing neighbors on the same street.</p>`+hits.slice(0,10).map((h,i)=>cardHTML(h[1],i)).join("");
+    else out.innerHTML=`<p class="empty">Not in the list — no heat violations and fewer than two 311 heat complaints recorded in the last two seasons. Verify on <a href="https://whoownswhat.justfix.org/" target="_blank" rel="noopener">Who Owns What</a>.</p>`;
     return;}
   hits.sort((a,b)=>a[0]-b[0]||b[1][F.v]-a[1][F.v]||b[1][F.c]-a[1][F.c]);
-  out.innerHTML=hits.length?hits.slice(0,15).map(h=>cardHTML(h[1])).join(""):`<p class="meta">Not in the list — no heat violations and fewer than two 311 heat complaints recorded in the last two seasons.</p>`;
+  out.innerHTML=hits.length?hits.slice(0,15).map((h,i)=>cardHTML(h[1],i)).join(""):`<p class="empty">Not in the list — no heat violations and fewer than two 311 heat complaints recorded in the last two seasons.</p>`;
 }
 
 function sorter(){
@@ -143,21 +398,56 @@ function sorter(){
   if(mode==="b")return {viol:(a,b)=>b[F.v]-a[F.v]||b[F.c]-a[F.c]||b[F.vp]-a[F.vp],c311:(a,b)=>b[F.c]-a[F.c]||b[F.v]-a[F.v],open:(a,b)=>b[F.o]-a[F.o]||b[F.v]-a[F.v],worse:(a,b)=>(b[F.v]-b[F.vp])-(a[F.v]-a[F.vp])}[s];
   return {viol:(a,b)=>b.v-a.v||b.c-a.c,c311:(a,b)=>b.c-a.c||b.v-a.v,open:(a,b)=>b.o-a.o||b.v-a.v,worse:(a,b)=>(b.v-b.vp)-(a.v-a.vp)}[s];
 }
+// which metric the bar shows, per sort
+const METRIC={viol:"v",c311:"c",open:"o",worse:"d"};
+const metricOf=(r,key)=>mode==="b"?(key==="d"?r[F.v]-r[F.vp]:r[F[key]]):(key==="d"?r.v-r.vp:r[key]);
+const METRIC_LABEL={v:"violations",c:"311 complaints",o:"open",d:"more than prior"};
+
+function bar(val,max,i){
+  const pct=max>0?Math.max(0,val)/max:0;
+  // sequential single-hue ramp: --line -> --accent by intensity
+  const mix=Math.round(35+pct*65);
+  return `<div class="bar" aria-hidden="true"><i style="width:${(pct*100).toFixed(1)}%;background:color-mix(in srgb,var(--accent) ${mix}%,var(--line));animation-delay:${Math.min(i*20,400)}ms"></i></div>`;
+}
 
 function board(){
-  const cd=$("cd").value, el=$("board");
+  const cd=$("cd").value, el=$("board"), key=METRIC[$("sort").value];
+  let html="", rows;
   if(mode==="b"){
-    let rows=D.buildings.filter(b=>!cd||b[F.cd]===cd); rows=rows.slice().sort(sorter());
+    rows=D.buildings.filter(b=>!cd||b[F.cd]===cd).sort(sorter());
     const tot=rows.reduce((s,b)=>s+b[F.v],0), totp=rows.reduce((s,b)=>s+b[F.vp],0);
-    el.innerHTML=`<p class="meta">${rows.length} buildings · ${tot} heat violations this season (${totp} prior season)</p><table><thead><tr><th>#</th><th>Building</th><th class="n">Violations<br><span class="small">this / prior</span></th><th class="n">Open</th><th class="n">311<br><span class="small">this / prior</span></th><th>Landlord</th></tr></thead><tbody>`+
-      rows.slice(0,shown).map((b,i)=>`<tr><td class="n">${i+1}</td><td><a href="${wow(b[F.bbl])}" target="_blank" rel="noopener">${esc(b[F.addr])}</a><div class="meta">${cd?"":cdName(b[F.cd])+" · "}${esc(b[F.zip])} · <a href="${hpd(b[F.bbl])}" target="_blank" rel="noopener" class="small">HPD</a></div></td><td class="n"><b>${b[F.v]}</b> / ${b[F.vp]}</td><td class="n">${b[F.o]||""}</td><td class="n">${b[F.c]} / ${b[F.cp]}</td><td class="small">${esc(b[F.owner]||b[F.corp]||"—")}</td></tr>`).join("")+"</tbody></table>";
-    $("more").hidden=rows.length<=shown;
+    const max=rows.length?Math.max(1,metricOf(rows[0],key)):1;
+    html=`<p class="board-meta"><b>${fmt(rows.length)}</b> buildings · <b>${fmt(tot)}</b> heat violations this season${totp?` (${fmt(totp)} prior season, ${chg(tot,totp)})`:""}</p>
+    <div class="list"><div class="hdr b"><span></span><span>Building</span><span>Violations <small>this / prior</small></span><span class="r">Open</span><span class="r">311 <small>this / prior</small></span><span>Landlord</span></div>`+
+      rows.slice(0,shown).map((b,i)=>`<div class="rr row-b" style="animation-delay:${Math.min(i*20,400)}ms">
+        <div class="rank">${i+1}</div>
+        <div class="name"><a class="t" href="${wow(b[F.bbl])}" target="_blank" rel="noopener">${esc(b[F.addr])}</a><div class="sub">${cd?"":cdName(b[F.cd])+" · "}${BORO[b[F.bbl][0]]} ${esc(b[F.zip])} · <a href="${hpd(b[F.bbl])}" target="_blank" rel="noopener">HPD Online</a></div></div>
+        <div class="vb"><div class="lbl"><span>${b[F.v]} <small>/ ${b[F.vp]}</small></span>${chgEl(b[F.v],b[F.vp])}</div>${bar(metricOf(b,key),max,i)}</div>
+        <div class="r">${b[F.o]||"<small>—</small>"}</div>
+        <div class="r">${b[F.c]} <small>/ ${b[F.cp]}</small></div>
+        <div class="stats"><span><b>${b[F.o]||0}</b> open</span><span><b>${b[F.c]}</b> 311 <b style="color:var(--muted)">/ ${b[F.cp]}</b> prior</span></div>
+        <div class="who" title="${esc(b[F.owner]||b[F.corp]||"")}">${esc(b[F.owner]||b[F.corp]||"—")}</div>
+      </div>`).join("")+"</div>";
   }else{
-    let rows=D.landlords.filter(L=>!cd||L.cds.includes(cd)); rows=rows.slice().sort(sorter());
-    el.innerHTML=`<p class="meta">${rows.length} landlords (by registered head officer / owner name) ${cd?"with buildings in "+cdName(cd):""} · ranked by total heat violations this season</p><table><thead><tr><th>#</th><th>Landlord (as registered)</th><th class="n">Bldgs</th><th class="n">Violations<br><span class="small">this / prior</span></th><th class="n">Per bldg</th><th class="n">Open</th><th class="n">311</th><th>Districts</th></tr></thead><tbody>`+
-      rows.slice(0,shown).map((L,i)=>`<tr><td class="n">${i+1}</td><td>${esc(L.n)}${L.corps.length?`<div class="meta small">${L.corps.map(esc).join(" · ")}</div>`:""}<div class="meta small">e.g. ${L.ex.map(e=>`<a href="${wow(e[0])}" target="_blank" rel="noopener">${esc(e[1])}</a>`).join(", ")}</div></td><td class="n">${L.b}</td><td class="n"><b>${L.v}</b> / ${L.vp}</td><td class="n">${L.vpb}</td><td class="n">${L.o||""}</td><td class="n">${L.c}</td><td class="small">${L.cds.map(cdName).join(", ")}</td></tr>`).join("")+"</tbody></table>";
-    $("more").hidden=rows.length<=shown;
+    rows=D.landlords.filter(L=>!cd||L.cds.includes(cd)).sort(sorter());
+    const max=rows.length?Math.max(1,metricOf(rows[0],key)):1;
+    html=`<p class="board-meta"><b>${fmt(rows.length)}</b> landlords by registered head officer / owner name${cd?" with buildings in "+cdName(cd):""} · ranked by ${METRIC_LABEL[key]} this season</p>
+    <div class="list"><div class="hdr l"><span></span><span>Landlord (as registered)</span><span class="r">Bldgs</span><span>Violations <small>this / prior</small></span><span class="r">Per bldg</span><span class="r">Open</span><span class="r">311</span><span>Districts</span></div>`+
+      rows.slice(0,shown).map((L,i)=>`<div class="rr row-l" style="animation-delay:${Math.min(i*20,400)}ms">
+        <div class="rank">${i+1}</div>
+        <div class="name"><div class="t">${esc(L.n)}</div>${L.corps.length?`<div class="sub">${L.corps.map(esc).join(" · ")}</div>`:""}<div class="sub">e.g. ${L.ex.map(e=>`<a href="${wow(e[0])}" target="_blank" rel="noopener">${esc(e[1])}</a>`).join(", ")}</div></div>
+        <div class="r">${L.b}</div>
+        <div class="vb"><div class="lbl"><span>${fmt(L.v)} <small>/ ${fmt(L.vp)}</small></span>${chgEl(L.v,L.vp)}</div>${bar(metricOf(L,key),max,i)}</div>
+        <div class="r">${L.vpb}</div>
+        <div class="r">${L.o?fmt(L.o):"<small>—</small>"}</div>
+        <div class="r">${fmt(L.c)}</div>
+        <div class="stats"><span><b>${L.b}</b> bldgs</span><span><b>${L.vpb}</b> per bldg</span><span><b>${fmt(L.o||0)}</b> open</span><span><b>${fmt(L.c)}</b> 311</span></div>
+        <div class="who" title="${L.cds.map(cdName).join(", ")}">${L.cds.map(cdName).join(", ")}</div>
+      </div>`).join("")+"</div>";
   }
+  el.innerHTML=html;
+  $("more").hidden=rows.length<=shown;
+  $("more").textContent=`Show ${Math.min(100,rows.length-shown)} more of ${fmt(rows.length)}`;
 }
 
 let t; $("q").addEventListener("input",()=>{clearTimeout(t);t=setTimeout(search,120);}); $("qboro").addEventListener("change",search);
