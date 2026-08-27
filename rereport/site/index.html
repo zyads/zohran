@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Re-Report — NYC 311 history lookup</title>
+<style>
+  :root {
+    --bg: #ffffff; --fg: #17191c; --muted: #5d6470; --line: #d9dde3; --card: #f5f6f8;
+    --accent: #1b5fd6; --accent-fg: #ffffff; --warn-bg: #fff3d6; --warn-fg: #6b4a00;
+    --ok-bg: #e2f5e6; --ok-fg: #1d5a2a; --bad-bg: #fde2e2; --bad-fg: #7a1f1f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121417; --fg: #e8eaee; --muted: #9aa3b0; --line: #2b3038; --card: #1b1f25;
+      --accent: #6ea0ff; --accent-fg: #0b1220; --warn-bg: #3d3010; --warn-fg: #ffd77a;
+      --ok-bg: #163a20; --ok-fg: #9be0aa; --bad-bg: #4a1c1c; --bad-fg: #ffb3b3;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 720px; margin: 0 auto; padding: 1rem 1rem 4rem; }
+  h1 { font-size: 1.6rem; margin: .5rem 0 .25rem; }
+  h2 { font-size: 1.15rem; margin: 1.5rem 0 .5rem; }
+  p.lead { color: var(--muted); margin: 0 0 1rem; }
+  form { display: flex; flex-direction: column; gap: .5rem; }
+  .row { display: flex; gap: .5rem; }
+  input[type=text] { flex: 1; min-width: 0; font: inherit; padding: .7rem .8rem; border: 1px solid var(--line);
+    border-radius: 8px; background: var(--bg); color: var(--fg); }
+  button { font: inherit; font-weight: 600; padding: .7rem 1rem; border: 0; border-radius: 8px;
+    background: var(--accent); color: var(--accent-fg); cursor: pointer; }
+  button.secondary { background: var(--card); color: var(--fg); border: 1px solid var(--line); }
+  button:disabled { opacity: .5; cursor: default; }
+  .hint { font-size: .85rem; color: var(--muted); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: .9rem 1rem; margin: .6rem 0; }
+  .badge { display: inline-block; font-size: .78rem; font-weight: 600; padding: .1rem .5rem; border-radius: 999px; margin-right: .3rem; }
+  .b-open { background: var(--ok-bg); color: var(--ok-fg); }
+  .b-closed { background: var(--card); color: var(--muted); border: 1px solid var(--line); }
+  .b-ghost { background: var(--bad-bg); color: var(--bad-fg); }
+  .b-dup { background: var(--warn-bg); color: var(--warn-fg); }
+  .meta { font-size: .88rem; color: var(--muted); }
+  .res { font-size: .92rem; margin-top: .4rem; white-space: pre-wrap; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .5rem; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: .6rem .8rem; }
+  .stat b { display: block; font-size: 1.5rem; }
+  .stat span { font-size: .8rem; color: var(--muted); }
+  textarea { width: 100%; min-height: 12rem; font: .92rem/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+    padding: .7rem; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); }
+  .timeline { list-style: none; padding: 0; margin: 0; }
+  .timeline li { border-left: 3px solid var(--line); padding: .3rem 0 .6rem .8rem; margin-left: .3rem; }
+  .timeline li.ghost { border-left-color: var(--bad-fg); }
+  .timeline li.open { border-left-color: var(--ok-fg); }
+  .timeline summary { cursor: pointer; }
+  a { color: var(--accent); }
+  .err { background: var(--bad-bg); color: var(--bad-fg); }
+  footer { margin-top: 3rem; font-size: .85rem; color: var(--muted); border-top: 1px solid var(--line); padding-top: 1rem; }
+  .hidden { display: none; }
+  .links li { margin: .25rem 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Re-Report</h1>
+  <p class="lead">Look up a NYC 311 service request or an address, see what actually happened,
+  and re-file with the history attached.</p>
+
+  <form id="f">
+    <div class="row">
+      <input type="text" id="q" inputmode="search" autocomplete="off" required
+        placeholder="311 SR number (e.g. 70193712) or address (e.g. 1201 2 Avenue)">
+      <button type="submit" id="go">Look up</button>
+    </div>
+    <div class="hint">Address: house number + street, no apartment or borough. Numbers as digits ("2 Avenue", not "Second Avenue").
+    Data comes from NYC Open Data and usually lags the 311 portal by about a day.</div>
+  </form>
+
+  <div id="status" class="hint" aria-live="polite"></div>
+  <div id="out"></div>
+
+  <footer>
+    <p><strong>Privacy:</strong> this page stores nothing and sends nothing anywhere except the public
+    NYC Open Data API at <code>data.cityofnewyork.us</code>. No cookies, no analytics, no accounts.
+    This site does not file anything with 311 for you; you paste the text into the official portal yourself.</p>
+    <p>"Closed without visible action" is a heuristic based on the wording of the agency's resolution text
+    (for example "not observed", "no violation", "unable to", "referred", "could not", "duplicate").
+    It is a flag to look closer, not a verdict. Source: 311 Service Requests dataset <code>erm2-nwe9</code>.
+    Open source, MIT.</p>
+  </footer>
+</main>
+
+<script>
+(function () {
+  'use strict';
+  var API = 'https://data.cityofnewyork.us/resource/erm2-nwe9.json';
+  var FIELDS = ['unique_key','created_date','closed_date','incident_address','borough','incident_zip',
+    'complaint_type','descriptor','status','resolution_description','resolution_action_updated_date',
+    'agency','agency_name','community_board'].join(',');
+  var LIMIT = 50;
+
+  // Same heuristic as the ghost tracker.
+  var GHOST_PATTERNS = [/not observed/i, /no violation/i, /unable to/i, /referred/i, /could not/i, /duplicate/i];
+  var DUP = /duplicate/i;
+
+  // Official NYC311 portal pages for the most common complaint types.
+  var PORTAL = 'https://portal.311.nyc.gov/';
+  var PORTAL_PAGES = [
+    [/^Noise - Residential$/i,            'KA-01017', 'Noise from Neighbor'],
+    [/^Illegal Parking$/i,                'KA-01986', 'Illegal Parking'],
+    [/^HEAT\/HOT WATER$|^HEATING$/i,      'KA-01036', 'Heat or Hot Water Complaint in a Residential Building'],
+    [/^Blocked Driveway$/i,               'KA-01062', 'Blocked Driveway'],
+    [/^Street Condition$/i,               'KA-01093', 'Pothole or Cave-In on Street'],
+    [/^Noise - Street\/Sidewalk$/i,       'KA-01092', 'Noise from Street or Sidewalk'],
+    [/^UNSANITARY CONDITION$|^GENERAL$|^PLUMBING$|^PAINT\/PLASTER$|^DOOR\/WINDOW$|^ELECTRIC$|^FLOORING\/STAIRS$|^APPLIANCE$|^SAFETY$|^WATER LEAK$/i,
+                                          'KA-01074', 'Apartment Maintenance Complaint'],
+    [/^Water System$/i,                   'KA-01234', 'Water Leak on Street or Sidewalk'],
+    [/^Noise - Commercial$/i,             'KA-01090', 'Noise from Store or Business'],
+    [/^Abandoned Vehicle$|^Derelict Vehicles?$/i, 'KA-02130', 'Abandoned Vehicle']
+  ];
+
+  var $ = function (id) { return document.getElementById(id); };
+  var out = $('out'), statusEl = $('status');
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function fmtDate(s) { if (!s) return ''; var d = new Date(s); return isNaN(d) ? s : d.toLocaleDateString(undefined, {year:'numeric',month:'short',day:'numeric'}); }
+  function isGhost(r) {
+    if (String(r.status || '').toLowerCase() !== 'closed') return false;
+    var t = r.resolution_description || '';
+    return GHOST_PATTERNS.some(function (p) { return p.test(t); });
+  }
+  function isDup(r) { return DUP.test(r.resolution_description || ''); }
+  function looksLikeKey(s) { return /^\d{6,10}$/.test(s); }
+
+  var ABBR = { ST:'STREET', AVE:'AVENUE', AV:'AVENUE', BLVD:'BOULEVARD', RD:'ROAD', PL:'PLACE', DR:'DRIVE',
+    LN:'LANE', CT:'COURT', PKWY:'PARKWAY', TER:'TERRACE', EXPY:'EXPRESSWAY', HWY:'HIGHWAY', SQ:'SQUARE',
+    E:'EAST', W:'WEST', N:'NORTH', S:'SOUTH' };
+  function normalizeAddress(s) {
+    s = s.toUpperCase().replace(/[.,#]/g, ' ').replace(/\s+/g, ' ').trim();
+    // strip apt / unit suffixes
+    s = s.replace(/\s+(APT|APARTMENT|UNIT|FL|FLOOR|SUITE|STE)\s+\S+$/,'');
+    // ordinal suffixes: 2ND -> 2, 74TH -> 74
+    s = s.replace(/\b(\d+)(ST|ND|RD|TH)\b/g, '$1');
+    return s.split(' ').map(function (w, i) { return (i > 0 && ABBR[w]) ? ABBR[w] : w; }).join(' ');
+  }
+
+  function fetchJSON(url) {
+    return fetch(url, { headers: { 'Accept': 'application/json' } }).then(function (r) {
+      if (!r.ok) throw new Error('NYC Open Data returned HTTP ' + r.status);
+      return r.json();
+    });
+  }
+  function byKey(key) { return fetchJSON(API + '?unique_key=' + encodeURIComponent(key) + '&$select=' + FIELDS); }
+  function byAddressExact(addr) {
+    return fetchJSON(API + '?incident_address=' + encodeURIComponent(addr) +
+      '&$order=created_date DESC&$limit=' + LIMIT + '&$select=' + FIELDS);
+  }
+  // 311 stores numbered cross streets right-padded, e.g. "11 WEST   74 STREET" / "19 EAST  109 STREET".
+  // Query both spellings and merge.
+  function variants(addr) {
+    var v = [addr];
+    var m = addr.match(/^(.*\b(?:EAST|WEST|NORTH|SOUTH)) (\d{1,4}) (.*)$/);
+    if (m) v.push(m[1] + ' ' + ('    ' + m[2]).slice(-4) + ' ' + m[3]);
+    var m2 = addr.match(/^(.*\b(?:EAST|WEST|NORTH|SOUTH))\s+(\d{1,4}) (.*)$/);
+    if (m2 && v.indexOf(m2[1] + ' ' + m2[2] + ' ' + m2[3]) < 0) v.push(m2[1] + ' ' + m2[2] + ' ' + m2[3]);
+    return v;
+  }
+  function byAddress(addr) {
+    return Promise.all(variants(addr).map(byAddressExact)).then(function (lists) {
+      var seen = {}, all = [];
+      lists.forEach(function (l) { l.forEach(function (r) { if (!seen[r.unique_key]) { seen[r.unique_key] = 1; all.push(r); } }); });
+      all.sort(function (a, b) { return (b.created_date || '').localeCompare(a.created_date || ''); });
+      return all.slice(0, LIMIT);
+    });
+  }
+
+  function badge(r) {
+    var s = String(r.status || '').toLowerCase();
+    var h = '';
+    if (s === 'closed') {
+      h += '<span class="badge b-closed">Closed</span>';
+      if (isGhost(r)) h += '<span class="badge b-ghost">Closed without visible action</span>';
+      else if (isDup(r)) h += '<span class="badge b-dup">Marked duplicate</span>';
+    } else {
+      h += '<span class="badge b-open">' + esc(r.status || 'Open') + '</span>';
+      if (isDup(r)) h += '<span class="badge b-dup">Marked duplicate</span>';
+    }
+    return h;
+  }
+
+  function renderRequest(r) {
+    return '<div class="card">' +
+      '<div>' + badge(r) + ' <strong>' + esc(r.complaint_type) + '</strong>' +
+      (r.descriptor ? ' <span class="meta">· ' + esc(r.descriptor) + '</span>' : '') + '</div>' +
+      '<div class="meta">SR ' + esc(r.unique_key) + ' · ' + esc(r.agency_name || r.agency) +
+      ' · opened ' + fmtDate(r.created_date) + (r.closed_date ? ' · closed ' + fmtDate(r.closed_date) : '') + '</div>' +
+      (r.incident_address ? '<div class="meta">' + esc(r.incident_address) + (r.borough ? ', ' + esc(r.borough) : '') +
+        (r.incident_zip ? ' ' + esc(r.incident_zip) : '') + '</div>' : '') +
+      (r.resolution_description ? '<div class="res">' + esc(r.resolution_description) + '</div>' :
+        '<div class="res meta">No resolution text yet.</div>') +
+      '</div>';
+  }
+
+  function portalLinks(type) {
+    var items = [];
+    PORTAL_PAGES.forEach(function (p) {
+      if (p[0].test(type || '')) items.push('<li><a href="' + PORTAL + 'article/?kanumber=' + p[1] +
+        '" target="_blank" rel="noopener">File: ' + esc(p[2]) + '</a> <span class="meta">(official NYC311 page for this type)</span></li>');
+    });
+    items.push('<li><a href="' + PORTAL + 'search/?q=' + encodeURIComponent(type || '') +
+      '" target="_blank" rel="noopener">Search NYC311 for "' + esc(type) + '"</a></li>');
+    items.push('<li><a href="' + PORTAL + '" target="_blank" rel="noopener">NYC311 home</a> · ' +
+      '<a href="' + PORTAL + 'check-status/" target="_blank" rel="noopener">check status on the portal</a> · or call 311</li>');
+    return '<ul class="links">' + items.join('') + '</ul>';
+  }
+
+  function buildText(focus, history, address) {
+    var type = focus ? focus.complaint_type : (history[0] && history[0].complaint_type);
+    var same = history.filter(function (r) { return r.complaint_type === type; });
+    // ensure the focus request is counted even if it fell outside the last N rows
+    if (focus && !same.some(function (r) { return r.unique_key === focus.unique_key; })) same.push(focus);
+    var n = same.length + 1;
+    var ord = n + (['th','st','nd','rd'][(n % 100 > 10 && n % 100 < 14) ? 0 : Math.min(n % 10, 4) % 4] || 'th');
+    var lines = [];
+    lines.push('This is the ' + ord + ' report of this issue at ' + address + '.');
+    var prevKeys = same.map(function (r) { return r.unique_key; });
+    if (prevKeys.length) lines.push('Prior 311 SR numbers: ' + prevKeys.join(', ') + '.');
+    var ghosts = same.filter(isGhost);
+    if (ghosts.length) {
+      lines.push('Prior closures without visible action:');
+      ghosts.forEach(function (r) {
+        var why = (r.resolution_description || '').replace(/\s+/g, ' ').slice(0, 140);
+        lines.push('  - SR ' + r.unique_key + ' closed ' + fmtDate(r.closed_date) + ': "' + why + (why.length >= 140 ? '…' : '') + '"');
+      });
+    }
+    var openOnes = same.filter(function (r) { return String(r.status).toLowerCase() !== 'closed'; });
+    if (openOnes.length) lines.push('Still open: SR ' + openOnes.map(function (r) { return r.unique_key; }).join(', ') + '.');
+    lines.push('');
+    lines.push('The condition persists as of ' + fmtDate(new Date().toISOString()) + '. ' +
+      'Please treat this as a repeat complaint and do not close it as a duplicate; the earlier requests were closed without the problem being resolved.');
+    lines.push('');
+    lines.push('Details of the current condition: [describe what you see today, time of day, how long it has been going on]');
+    return lines.join('\n');
+  }
+
+  function renderHistory(history, focus, addressLabel) {
+    var total = history.length;
+    var ghosts = history.filter(isGhost).length;
+    var open = history.filter(function (r) { return String(r.status).toLowerCase() !== 'closed'; }).length;
+    var typeOf = focus ? focus.complaint_type : (history[0] && history[0].complaint_type);
+    var sameType = history.filter(function (r) { return r.complaint_type === typeOf; }).length;
+    var h = '';
+    h += '<h2>History for ' + esc(addressLabel) + '</h2>';
+    h += '<div class="stats">' +
+      '<div class="stat"><b>' + total + (total >= LIMIT ? '+' : '') + '</b><span>reports on record' + (total >= LIMIT ? ' (showing latest ' + LIMIT + ')' : '') + '</span></div>' +
+      '<div class="stat"><b>' + sameType + '</b><span>same type: ' + esc(typeOf) + '</span></div>' +
+      '<div class="stat"><b>' + ghosts + '</b><span>closed without visible action</span></div>' +
+      '<div class="stat"><b>' + open + '</b><span>still open</span></div></div>';
+
+    var text = buildText(focus, history, addressLabel);
+    h += '<h2>Re-report</h2>' +
+      '<p class="hint">Paste this into the description box of a new 311 request. Nothing is submitted from this page.</p>' +
+      '<textarea id="txt" spellcheck="false">' + esc(text) + '</textarea>' +
+      '<div class="row" style="margin-top:.5rem"><button type="button" id="copy">Copy text</button>' +
+      '<button type="button" class="secondary" id="dl">Download .txt</button></div>' +
+      '<p class="hint" id="copied"></p>' +
+      '<p>Then file it on the official NYC311 portal:</p>' + portalLinks(typeOf);
+
+    h += '<h2>Timeline</h2><ul class="timeline">';
+    history.forEach(function (r) {
+      var cls = isGhost(r) ? 'ghost' : (String(r.status).toLowerCase() !== 'closed' ? 'open' : '');
+      h += '<li class="' + cls + '"><details' + (focus && r.unique_key === focus.unique_key ? ' open' : '') + '>' +
+        '<summary>' + fmtDate(r.created_date) + ' · <strong>' + esc(r.complaint_type) + '</strong> ' + badge(r) +
+        ' <span class="meta">SR ' + esc(r.unique_key) + '</span></summary>' +
+        '<div class="meta">' + esc(r.descriptor || '') + (r.descriptor ? ' · ' : '') + esc(r.agency) +
+        (r.closed_date ? ' · closed ' + fmtDate(r.closed_date) : '') + '</div>' +
+        '<div class="res">' + esc(r.resolution_description || 'No resolution text yet.') + '</div></details></li>';
+    });
+    h += '</ul>';
+    return h;
+  }
+
+  function wireButtons() {
+    var ta = $('txt'), c = $('copy'), d = $('dl'), msg = $('copied');
+    if (!ta) return;
+    c.addEventListener('click', function () {
+      var done = function () { msg.textContent = 'Copied.'; setTimeout(function () { msg.textContent = ''; }, 2500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(done, function () { ta.select(); document.execCommand('copy'); done(); });
+      else { ta.select(); document.execCommand('copy'); done(); }
+    });
+    d.addEventListener('click', function () {
+      var blob = new Blob([ta.value], { type: 'text/plain' });
+      var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'rereport-311.txt';
+      document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+    });
+  }
+
+  function fail(msg) { statusEl.textContent = ''; out.innerHTML = '<div class="card err">' + esc(msg) + '</div>'; }
+
+  function run(q) {
+    out.innerHTML = ''; statusEl.textContent = 'Looking up…'; $('go').disabled = true;
+    var p;
+    if (looksLikeKey(q)) {
+      p = byKey(q).then(function (rows) {
+        if (!rows.length) throw new Error('No service request ' + q + ' in NYC Open Data. New requests take about a day to appear; numbers starting with "311-" are portal IDs, not the SR number.');
+        var focus = rows[0];
+        var head = '<h2>Service request ' + esc(focus.unique_key) + '</h2>' + renderRequest(focus);
+        if (!focus.incident_address) {
+          out.innerHTML = head + '<div class="card">This request has no street address on record, so address history is not available.</div>' +
+            '<h2>Re-report</h2><textarea id="txt" spellcheck="false">' + esc(buildText(focus, [], (focus.borough || 'this location'))) + '</textarea>' +
+            '<div class="row" style="margin-top:.5rem"><button type="button" id="copy">Copy text</button><button type="button" class="secondary" id="dl">Download .txt</button></div><p class="hint" id="copied"></p>' + portalLinks(focus.complaint_type);
+          return;
+        }
+        return byAddress(focus.incident_address).then(function (hist) {
+          out.innerHTML = head + renderHistory(hist, focus, focus.incident_address + (focus.borough ? ', ' + focus.borough : ''));
+        });
+      });
+    } else {
+      var addr = normalizeAddress(q);
+      p = byAddress(addr).then(function (hist) {
+        if (!hist.length) throw new Error('No 311 requests found for "' + addr + '". Try the exact house number and street name as 311 records it (e.g. "11 WEST 74 STREET", "68-08 141 STREET").');
+        out.innerHTML = renderHistory(hist, null, hist[0].incident_address + (hist[0].borough ? ', ' + hist[0].borough : ''));
+      });
+    }
+    p.then(function () { statusEl.textContent = ''; wireButtons(); })
+     .catch(function (e) { fail(e.message || String(e)); })
+     .then(function () { $('go').disabled = false; });
+  }
+
+  $('f').addEventListener('submit', function (e) { e.preventDefault(); var q = $('q').value.trim(); if (q) run(q); });
+  // Optional ?q= for shareable links; nothing is stored.
+  try { var pq = new URLSearchParams(location.search).get('q'); if (pq && pq.trim()) { $('q').value = pq.trim(); run(pq.trim()); } } catch (e) {}
+})();
+</script>
+</body>
+</html>
