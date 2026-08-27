@@ -1,37 +1,67 @@
-# zohran — civic tools for NYC, built on public data
+<h1 align="center">Where the city quietly gives up.</h1>
 
-Open-source, local-first tools that help New Yorkers get things fixed. Built to be
-useful **whether or not** anyone in City Hall ever replies. Everything runs on NYC Open
-Data / public APIs — no city access, no insider data, no permission needed.
+<p align="center">
+<b>Open-source civic tools for New York City, built on nothing but public data.</b><br>
+No accounts. No tracking. No city access needed. Rebuilt every night.<br><br>
+<a href="https://zyadshehadeh.dev/zohran/"><b>zyadshehadeh.dev/zohran</b></a>
+</p>
 
-## Ideas, ranked by "actually helps NYC" (not by demo-wow)
+---
 
-### 1. 311 Ghost Tracker  ← ship this first
-NYC 311 "closes" complaints constantly without fixing them ("condition not observed",
-"referred to other agency"). Nobody aggregates that. Tool: pull the public 311 dataset,
-score every agency + community district by **closed-without-action rate** and
-**re-report rate** (same address, same problem, reopened within 30 days). Public
-leaderboard, per-block lookup, weekly diff. Shows where the system quietly gives up — pure public data.
-- Data: `data.cityofnewyork.us/resource/erm2-nwe9.json` (311, live)
-- Stack: one Python cron → SQLite → static site. Zero servers to babysit.
+Every 311 request ends with a one-line resolution. A lot of them say some version of
+*"we looked, we didn't see it, closed."* The city publishes closure rates and time-to-close.
+It does not publish **how often "closed" meant nothing happened** — or how often the same
+address had to report the same problem again.
 
-### 2. Re-Report Bot (for residents, not the office)
-One-tap page: paste an old 311 number → it checks status, and if it was closed
-without a fix, pre-fills a *new* 311 complaint with the history attached
-("3rd report, prev SR#s: …"). Turns individual frustration into a paper trail.
-Runs entirely client-side.
+So we counted. Over the last 90 days:
 
-### 3. Landlord Heat & Hot Water Scoreboard
-Winter matters. Join HPD violations + 311 heat complaints + DOB → per-building and
-per-landlord (via HPD registration) heat/hot-water violation history. Tenants punch in
-an address before signing a lease; organizers see the worst 50 landlords per district.
-This directly feeds tenant-protection work.
-- Data: HPD violations `wvxf-dwi5`, HPD registrations `tesw-yqqr`, 311.
+| | |
+|---|---|
+| **51%** | of all 311 closures citywide were closed without visible action |
+| **80%** | for the Department of Buildings · **62%** HPD · **59%** NYPD (median 1.4 h to close) |
+| **46%** | of closed complaints were re-reported from the same address within 30 days |
+| **73%** | of blocked-bike-lane complaints ended with no action, median ~1 hour |
+| **+20%** | heat & hot-water violations this season vs last (52,121 vs 43,581) |
 
-### 4. Bus Lane / Bike Lane Blockage Heatmap
-MTA bus speeds (public) + 311 "blocked bike lane" + ACE camera enforcement data →
-where buses are slowest and why. Cheap, visual, matches the transit agenda.
+Every number above links to a page where you can look up your own block.
+
+## The tools
+
+| | What it does | Data |
+|---|---|---|
+| [**311 Ghost Tracker**](https://zyadshehadeh.dev/zohran/ghost-tracker/) | Every agency and community board scored on *closed-without-action* rate and *re-report* rate. Find your board. | 311 (`erm2-nwe9`) |
+| [**Re-Report**](https://zyadshehadeh.dev/zohran/rereport/) | Paste a 311 number or address → full history for that location → a new report that carries the receipts. Runs entirely in your browser. | 311, live |
+| [**Heat & Hot Water**](https://zyadshehadeh.dev/zohran/heat/) | Buildings and landlords ranked by heat violations, per community district, this season vs last. Check an address before you sign. | HPD violations + registrations, 311 |
+| [**Lane Blockage Map**](https://zyadshehadeh.dev/zohran/lanes/) | Where bike lanes get blocked, how often those complaints go nowhere, and the slowest bus segments in the city. | 311, MTA segment speeds |
+| [**Parks**](https://zyadshehadeh.dev/zohran/parks/) | Every park ranked by open complaints, what gets fixed, what gets closed without a fix, and how long it takes. | 311 (DPR) |
+
+## How it's built
+
+One Python script per tool pulls from [NYC Open Data](https://opendata.cityofnewyork.us/), writes one `data.json`,
+and one static HTML page renders it. No framework, no build step, no server, no CDN JavaScript.
+GitHub Actions rebuilds the data nightly and deploys to Pages. You can run the whole thing from a laptop:
+
+```sh
+git clone https://github.com/zyads/zohran && cd zohran
+make          # builds every tool's data.json → dist/
+make serve    # http://localhost:8090
+```
+
+Each tool's `README.md` documents its methodology; the scoring rules (the exact phrases that count as
+"closed without action", the 30-day re-report window, the heat-season boundaries) are at the top of each
+`build.py`, and repeated in plain language on every page. If you think a rule is wrong, open an issue —
+that's the point of publishing them.
 
 ## Principles
-Public data only · static-first, no accounts · everything reproducible from a
-`make` · MIT licensed · no analytics, no tracking.
+
+- **Public data only.** If the city doesn't publish it, we don't use it.
+- **Nothing stored.** No analytics, no accounts, no server that sees what you look up.
+- **Reproducible.** Every number on every page can be regenerated with `make`.
+- **Forkable.** MIT. Point it at another city's Socrata portal and most of it just works.
+
+## Contributing
+
+Ideas that fit: new scoring lenses on existing data, other agencies, other cities.
+Ideas that don't: anything requiring accounts, scraping private platforms, or non-public data.
+
+<p align="center"><sub>Built in New York · MIT License</sub></p>
