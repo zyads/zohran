@@ -40,6 +40,13 @@ if l:
     s["lanes"] = {"no_action_pct": round(t["no_action_rate"] * 100, 1) if t.get("no_action_rate") is not None else None,
                   "complaints": t.get("complaints"), "window_days": l.get("window_days")}
 
+p = load("parks")
+if p:
+    ip = p.get("in_park", {})
+    s["parks"] = {"open": ip.get("open"), "total": ip.get("total"),
+                  "ghost_pct": ip.get("ghost_pct"), "median_days": ip.get("median_days"),
+                  "window_days": p.get("window_days")}
+
 os.makedirs(os.path.dirname(out), exist_ok=True)
 with open(out, "w") as f:
     json.dump(s, f, indent=1)

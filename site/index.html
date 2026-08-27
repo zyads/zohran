@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <title>NYC civic tools</title>
-<meta name="description" content="Four small open-source tools built on NYC Open Data: 311 closed-without-action rates, re-reporting, heat and hot water records, and blocked bike and bus lanes. Nothing stored.">
+<meta name="description" content="Five small open-source tools built on NYC Open Data: 311 closed-without-action rates, re-reporting, heat and hot water records, and blocked bike and bus lanes, and park repairs. Nothing stored.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -98,7 +98,7 @@ h1 em{font-style:italic;color:var(--accent)}
 
 /* reveal */
 .rv{opacity:0;transform:translateY(10px);animation:in .4s ease-out forwards}
-.rv:nth-child(2){animation-delay:.08s}.rv:nth-child(3){animation-delay:.16s}.rv:nth-child(4){animation-delay:.24s}
+.rv:nth-child(2){animation-delay:.08s}.rv:nth-child(3){animation-delay:.16s}.rv:nth-child(4){animation-delay:.24s}.rv:nth-child(5){animation-delay:.32s}
 @keyframes in{to{opacity:1;transform:none}}
 
 /* note + footer */
@@ -128,6 +128,7 @@ footer .brand{font-size:18px;color:var(--fg);border:0;margin-right:auto}
       <a href="rereport/">Re-Report</a>
       <a href="heat/">Heat &amp; Hot Water</a>
       <a href="lanes/">Lanes</a>
+      <a href="parks/">Parks</a>
     </nav>
     <button class="toggle" id="theme" type="button" aria-label="Toggle dark mode">
       <svg class="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
@@ -138,9 +139,9 @@ footer .brand{font-size:18px;color:var(--fg);border:0;margin-right:auto}
 
 <section class="hero">
   <div class="wrap">
-    <p class="kicker">Four tools <b>·</b> NYC Open Data <b>·</b> refreshed nightly</p>
+    <p class="kicker">Five tools <b>·</b> NYC Open Data <b>·</b> refreshed nightly</p>
     <h1>Where the city <em>quietly</em> gives up.</h1>
-    <p class="sub">Public records, read closely. Which 311 complaints get closed without a fix, which buildings go cold every winter, which bike lanes are always blocked. Everything runs in your browser from <a href="https://opendata.cityofnewyork.us/">NYC Open Data</a>. Nothing you type is stored.</p>
+    <p class="sub">Public records, read closely. Which 311 complaints get closed without a fix, which buildings go cold every winter, which bike lanes are always blocked, which parks are waiting on a repair. Everything runs in your browser from <a href="https://opendata.cityofnewyork.us/">NYC Open Data</a>. Nothing you type is stored.</p>
   </div>
 </section>
 
@@ -188,6 +189,17 @@ footer .brand{font-size:18px;color:var(--fg);border:0;margin-right:auto}
       <p class="lbl" data-lbl>of blocked bike-lane complaints ended with no action taken.</p>
       <h2>Lane Blockage Map</h2>
       <p>Where bike and bus lanes get blocked most, how often those complaints go nowhere, and the slowest bus segments.</p>
+      <span class="open">Open <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+    </a>
+
+    <a class="card rv" href="parks/" data-key="parks">
+      <p class="n"><span>Parks</span><span data-meta>last 180 days</span></p>
+      <p class="big" data-num data-fallback="Look up a park">
+        <span data-val>&nbsp;</span><span class="tiny" data-extra></span>
+      </p>
+      <p class="lbl" data-lbl>complaints in city parks are still open right now.</p>
+      <h2>Parks</h2>
+      <p>Which parks have the most open complaints, which kinds of reports get closed without a fix, and how long repairs take.</p>
       <span class="open">Open <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
     </a>
 
@@ -261,6 +273,10 @@ footer .brand{font-size:18px;color:var(--fg);border:0;margin-right:auto}
     if(s.lanes&&s.lanes.no_action_pct!=null){
       setNum('lanes',s.lanes.no_action_pct,0,null,s.lanes.window_days?'last '+s.lanes.window_days+' days':null);
     }else fail('lanes');
+    if(s.parks&&s.parks.open!=null){
+      setNum('parks',s.parks.open,0,s.parks.ghost_pct!=null?s.parks.ghost_pct+'% closed without action':null,s.parks.window_days?'last '+s.parks.window_days+' days':null);
+      if(s.parks.total)card('parks').querySelector('[data-lbl]').textContent='of '+fmt(s.parks.total,0)+' complaints in city parks are still open right now.';
+    }else fail('parks');
     if(s.generated){var b=document.getElementById('built');b.hidden=false;b.textContent='Updated '+s.generated.slice(0,10);}
   }
   function getJSON(u){return fetch(u,{cache:'no-cache'}).then(function(r){if(!r.ok)throw 0;return r.json();});}
@@ -275,6 +291,9 @@ footer .brand{font-size:18px;color:var(--fg);border:0;margin-right:auto}
       }).catch(function(){}),
       getJSON('lanes/data.json').then(function(l){
         s.lanes={no_action_pct:Math.round(l.totals.no_action_rate*1000)/10,window_days:l.window_days};
+      }).catch(function(){}),
+      getJSON('parks/data.json').then(function(p){
+        s.parks={open:p.in_park.open,total:p.in_park.total,ghost_pct:p.in_park.ghost_pct,window_days:p.window_days};
       }).catch(function(){})
     ]).then(function(){apply(s);});
   });

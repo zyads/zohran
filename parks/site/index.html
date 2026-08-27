@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Parks — what New Yorkers report in parks and what gets fixed</title>
+<meta name="description" content="A per-park scoreboard from NYC 311: which parks have the most open complaints, which complaint types get closed without action, and how long fixes take. Built from public NYC Open Data.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#FAF8F3;--fg:#141414;--muted:#6B6860;--line:#E6E2D8;--card:#FFFFFF;
+  --accent:#D4491E;--accent2:#1F5FA8;--ok:#2E7D4F;
+  --track:#EDEAE2;--hl:#FFF1EA;--shadow:none;
+  --serif:"Instrument Serif",Georgia,"Times New Roman",serif;
+  --sans:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme=light]){
+    --bg:#101010;--fg:#F2EFE8;--muted:#9C978C;--line:#262626;--card:#181818;
+    --accent:#E4653C;--accent2:#4C86CF;--ok:#4E9B6E;
+    --track:#222222;--hl:#2A1912;--shadow:0 6px 24px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme=dark]{
+  --bg:#101010;--fg:#F2EFE8;--muted:#9C978C;--line:#262626;--card:#181818;
+  --accent:#E4653C;--accent2:#4C86CF;--ok:#4E9B6E;
+  --track:#222222;--hl:#2A1912;--shadow:0 6px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.6 var(--sans);font-feature-settings:"cv11","ss01"}
+a{color:var(--accent2);text-decoration:none;border-bottom:1px solid color-mix(in srgb,var(--accent2) 35%,transparent)}
+a:hover{border-bottom-color:var(--accent2)}
+.wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+.cap{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:500}
+.num,.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* ---------- sticky nav ---------- */
+.top{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 94%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;gap:18px;height:58px}
+.wordmark{font-family:var(--serif);font-size:23px;color:var(--fg);border:0;white-space:nowrap;letter-spacing:-.01em}
+.wordmark:hover{border:0;color:var(--accent)}
+.nav{display:flex;gap:2px;margin-left:auto;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
+.nav::-webkit-scrollbar{display:none}
+.nav a{color:var(--muted);font-size:14px;font-weight:500;padding:6px 10px;border:0;border-radius:8px;white-space:nowrap}
+.nav a:hover{color:var(--fg);background:var(--track)}
+.nav a[aria-current]{color:var(--fg);background:var(--track)}
+.toggle{flex:none;background:none;border:1px solid var(--line);color:var(--fg);border-radius:999px;width:36px;height:36px;cursor:pointer;display:grid;place-items:center;padding:0}
+.toggle:hover{border-color:var(--muted)}
+.toggle svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.toggle .moon{display:none}
+:root[data-theme=dark] .toggle .sun{display:none}
+:root[data-theme=dark] .toggle .moon{display:block}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme=light]) .toggle .sun{display:none}
+  :root:not([data-theme=light]) .toggle .moon{display:block}
+}
+
+/* ---------- hero ---------- */
+.hero{padding:56px 0 40px;position:relative;overflow:hidden}
+.hero::before{content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(60% 55% at 85% 0%,color-mix(in srgb,var(--accent) 9%,transparent),transparent 70%)}
+.hero .lede{position:relative;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:48px;align-items:end}
+.hero h1{font-family:var(--serif);font-weight:400;font-size:40px;line-height:1.08;letter-spacing:-.01em;margin:10px 0 18px;text-wrap:balance}
+.hero h1 em{font-style:italic;color:var(--accent)}
+.hero p{margin:0;max-width:56ch;color:var(--muted);text-wrap:pretty}
+.hero p strong{color:var(--fg);font-weight:500}
+.big{display:flex;flex-direction:column;align-items:flex-start}
+.big .n{font-family:var(--serif);font-size:clamp(84px,11vw,120px);line-height:.95;letter-spacing:-.03em;color:var(--fg);font-variant-numeric:tabular-nums;display:flex;align-items:baseline}
+.big .n .pct{font-size:.5em;color:var(--accent);margin-left:4px}
+.big .l{margin-top:12px;font-size:17px;max-width:30ch;color:var(--fg);text-wrap:pretty}
+.big .l b{font-weight:600}
+.big .meta{margin-top:8px;font-size:13px;color:var(--muted)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:36px 0 0}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow);transition:transform .18s ease}
+.stat:hover{transform:translateY(-2px)}
+.stat .n{font-family:var(--serif);font-size:34px;line-height:1.05;letter-spacing:-.02em;margin-top:8px;font-variant-numeric:tabular-nums}
+.stat .s{font-size:13px;color:var(--muted);margin-top:6px}
+
+/* ---------- lookup ---------- */
+.lookup{margin:52px auto 0}
+.lookup h2{margin:6px 0 12px}
+.search{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch}
+.search input,.search select{font:inherit;font-size:16px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--fg);padding:12px 14px;box-shadow:var(--shadow)}
+.search input{flex:1;min-width:240px}
+.search input:focus,.search select:focus{outline:2px solid var(--accent2);outline-offset:1px;border-color:transparent}
+.search input::placeholder{color:var(--muted)}
+.search select{appearance:none;-webkit-appearance:none;padding-right:34px;
+  background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);
+  background-position:calc(100% - 18px) 50%,calc(100% - 13px) 50%;background-size:5px 5px;background-repeat:no-repeat}
+.note{font-size:14px;color:var(--muted);margin:10px 0 0;max-width:80ch}
+.qresult{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+.qresult:empty{display:none}
+.qresult .hit-card{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:14px;padding:12px 16px;font-size:15px}
+.qresult .hit-card b{font-weight:600}
+.qresult .hit-card .cmp{color:var(--muted)}
+
+/* ---------- sections ---------- */
+section.block{margin:64px auto 0}
+section.block .head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 24px;border-top:1px solid var(--line);padding-top:18px}
+h2{font-family:var(--serif);font-weight:400;font-size:32px;line-height:1.1;letter-spacing:-.01em;margin:6px 0 0}
+section.block .note{margin:8px 0 18px}
+.sortbar{display:none;align-items:center;gap:8px;margin:0 0 12px;font-size:14px;color:var(--muted)}
+.sortbar select{font:inherit;font-size:14px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg);padding:8px 10px;flex:1}
+.sortbar button{font:inherit;font-size:14px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg);padding:8px 12px;cursor:pointer}
+
+/* ---------- tables ---------- */
+.tablewrap{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow-x:auto;overflow-y:hidden;box-shadow:var(--shadow)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:12px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
+th{position:sticky;top:0;z-index:1;background:var(--card);cursor:pointer;user-select:none;font-size:12px;letter-spacing:.06em;text-transform:uppercase;font-weight:500;color:var(--muted)}
+th:hover{color:var(--fg)}
+th.sorted{color:var(--fg)}
+th .arrow{display:inline-block;margin-left:5px;font-size:9px;transform:translateY(-1px)}
+th:first-child,td:first-child{padding-left:18px}
+th:last-child,td:last-child{padding-right:18px}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover td{background:color-mix(in srgb,var(--track) 55%,transparent)}
+tr.hit td{background:var(--hl)!important}
+td.name{white-space:normal;min-width:150px;max-width:300px;line-height:1.35}
+td.name b{font-weight:600}
+td.name .sub{display:block;color:var(--muted);font-size:13px;margin-top:2px}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:13px}
+td.num .sub{color:var(--muted);font-size:12px;margin-left:5px}
+.cell{display:flex;align-items:center;gap:10px}
+.cell .v{min-width:5.2ch;text-align:right}
+.track{position:relative;flex:none;width:84px;height:8px;border-radius:4px;background:var(--track);overflow:visible}
+.track .fill{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--fill,var(--accent));transform-origin:left;transition:transform .5s cubic-bezier(.2,.7,.2,1)}
+.track .tick{position:absolute;top:-3px;bottom:-3px;width:1.5px;background:var(--fg);opacity:.55;border-radius:1px}
+tbody tr{animation:rise .38s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--i,0)*14ms)}
+@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ---------- methodology + footer ---------- */
+.method{margin:72px auto 0}
+details{border:1px solid var(--line);border-radius:14px;background:var(--card);padding:0 20px;margin:10px 0;box-shadow:var(--shadow)}
+summary{cursor:pointer;font-weight:500;padding:16px 0;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:12px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";font-family:var(--serif);font-size:24px;line-height:1;color:var(--muted);flex:none}
+details[open] summary::after{content:"–"}
+details .body{padding:0 0 18px;font-size:15px;color:var(--fg)}
+details .body p{margin:0 0 12px;max-width:75ch}
+details .body p:last-child{margin-bottom:0}
+code{font-family:var(--mono);font-size:.85em;background:var(--track);padding:2px 6px;border-radius:6px}
+ul.pat{columns:2;font-size:13px;margin:8px 0 14px;padding-left:18px;color:var(--muted)}
+ul.pat li{margin:2px 0;break-inside:avoid}
+footer{margin:64px 0 0;border-top:1px solid var(--line);padding:28px 0 56px;color:var(--muted);font-size:14px}
+footer .wrap{display:flex;flex-wrap:wrap;gap:8px 28px;justify-content:space-between}
+footer a{color:var(--muted);border-bottom-color:var(--line)}
+footer a:hover{color:var(--fg)}
+.hidden{display:none}
+.more{display:flex;justify-content:center;margin:12px 0 0}
+.more button{font:inherit;font-size:14px;font-weight:500;border:1px solid var(--line);border-radius:999px;background:var(--card);color:var(--fg);padding:9px 18px;cursor:pointer;box-shadow:var(--shadow)}
+.more button:hover{border-color:var(--muted)}
+.more:empty{display:none}
+
+/* ---------- responsive ---------- */
+@media (max-width:900px){
+  .hero .lede{grid-template-columns:1fr;gap:28px}
+  .stats{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:640px){
+  .wrap{padding:0 16px}
+  .top .wrap{gap:10px}
+  .wordmark{font-size:20px}
+  .hero{padding:36px 0 28px}
+  .hero h1{font-size:34px}
+  .big .n{font-size:88px}
+  .stats{gap:10px;margin-top:28px}
+  .stat{padding:14px}
+  .stat .n{font-size:28px}
+  h2{font-size:28px}
+  section.block{margin-top:48px}
+  ul.pat{columns:1}
+  .sortbar{display:flex}
+  /* tables -> cards */
+  .tablewrap{background:none;border:0;box-shadow:none;overflow:visible}
+  table,tbody{display:block;width:100%}
+  thead{display:none}
+  tbody tr{display:block;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:6px 16px 10px;margin-bottom:10px;box-shadow:var(--shadow)}
+  tbody tr td{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:8px 0!important;border-bottom:1px solid var(--line);white-space:normal}
+  tbody tr td:last-child{border-bottom:0}
+  tbody tr td::before{content:attr(data-label);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:500;flex:none;font-family:var(--sans)}
+  td.name{display:block;padding:8px 0 10px!important;min-width:0;max-width:none;font-size:16px}
+  td.name::before{display:none}
+  .cell{justify-content:flex-end}
+  .track{width:72px}
+  tr.hit{border-color:var(--accent)}
+  tr.hit td{background:transparent!important}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  tbody tr{animation:none}
+  .track .fill{transition:none}
+  .stat{transition:none}
+}
+/* ---------- parks: map + chart + search ---------- */
+.mapwrap{position:relative;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px;box-shadow:var(--shadow)}
+.mapwrap svg{display:block;width:100%;height:auto}
+.land{fill:var(--track);stroke:var(--line);stroke-width:1.2}
+.lbl{font:500 13px var(--sans);letter-spacing:.08em;fill:var(--muted);text-anchor:middle;pointer-events:none;paint-order:stroke;stroke:var(--card);stroke-width:4px;stroke-linejoin:round}
+.dot{stroke:var(--card);stroke-width:1.5;cursor:pointer;transition:opacity .15s}
+.dot.dim{opacity:.25}
+.dot.on{stroke:var(--fg);stroke-width:2}
+.tip{position:absolute;display:none;pointer-events:none;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.45;max-width:260px;box-shadow:0 6px 24px rgba(0,0,0,.18);z-index:5}
+.tip b{font-weight:600}
+.tip .m{color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;margin:10px 0 0;font-size:13px;color:var(--muted)}
+.legend .sw{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+.legend .ln{display:inline-block;width:18px;height:0;border-top:2px solid;margin-right:6px;vertical-align:3px}
+.chartwrap{position:relative;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 12px 8px;box-shadow:var(--shadow)}
+.chartwrap svg{display:block;width:100%;height:auto}
+.ax{font:400 12px var(--mono);fill:var(--muted)}
+.grid{stroke:var(--line);stroke-width:1}
+.ser{fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.xh{stroke:var(--muted);stroke-width:1;stroke-dasharray:3 3;display:none}
+.result{margin-top:12px}
+.result:empty{display:none}
+.pcard{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow)}
+.pcard h3{font-family:var(--serif);font-weight:400;font-size:26px;line-height:1.1;margin:0;letter-spacing:-.01em}
+.pcard .sub{color:var(--muted);font-size:14px;margin-top:2px}
+.pcard .row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:14px}
+.pcard .row .n{font-family:var(--serif);font-size:30px;line-height:1;font-variant-numeric:tabular-nums}
+.pcard .row .s{font-size:12px;color:var(--muted);margin-top:4px;letter-spacing:.06em;text-transform:uppercase}
+.pcard .top{margin-top:12px;font-size:14px}
+.pcard .top b{font-weight:600}
+.sugg{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.sugg button{font:inherit;font-size:13px;border:1px solid var(--line);border-radius:999px;background:var(--card);color:var(--fg);padding:5px 12px;cursor:pointer}
+.sugg button:hover{border-color:var(--muted)}
+.sugg:empty{display:none}
+.boros{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:14px}
+.boros .b{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;box-shadow:var(--shadow)}
+.boros .b .nm{font-weight:600;font-size:14px}
+.boros .b .n{font-family:var(--serif);font-size:30px;line-height:1.05;margin-top:6px;font-variant-numeric:tabular-nums}
+.boros .b .s{font-size:12px;color:var(--muted);margin-top:4px}
+.boros .b .track{width:100%;margin-top:10px;display:block}
+@media (max-width:900px){.boros{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:640px){
+  .boros{grid-template-columns:1fr 1fr;gap:8px}
+  .boros .b{padding:12px}
+  .pcard .row{grid-template-columns:1fr 1fr}
+  .mapwrap{padding:4px}
+  .tip{max-width:210px}
+}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="wrap">
+    <a class="wordmark" href="../">NYC civic tools</a>
+    <nav class="nav" aria-label="Tools">
+      <a href="../ghost-tracker/">Ghost Tracker</a>
+      <a href="../rereport/">Re-Report</a>
+      <a href="../heat/">Heat</a>
+      <a href="../lanes/">Lanes</a>
+      <a href="../parks/" aria-current="page">Parks</a>
+    </nav>
+    <button class="toggle" id="theme" type="button" aria-label="Toggle dark mode" title="Toggle theme">
+      <svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+    </button>
+  </div>
+</div>
+
+<main>
+  <header class="hero">
+    <div class="wrap lede">
+      <div>
+        <div class="cap">Parks</div>
+        <h1>What New Yorkers report in parks, and what <em>gets fixed</em>.</h1>
+        <p>Every broken swing, dark path, dead water fountain and locked bathroom reported to 311 lands with the
+        Parks Department. This page keeps score <strong>park by park</strong>: how many complaints are still open,
+        which kinds get closed without anything being done, and how long a fix usually takes.</p>
+      </div>
+      <div class="big">
+        <div class="n" aria-live="polite"><span id="big-n" data-target="0">0</span></div>
+        <div class="l"><b>open complaints</b> in city parks right now</div>
+        <div class="meta" id="meta">Loading data…</div>
+      </div>
+    </div>
+    <div class="wrap">
+      <div class="stats" id="tiles"></div>
+    </div>
+  </header>
+
+  <section class="wrap lookup" id="lookup">
+    <div class="cap">Look it up</div>
+    <h2>Your park</h2>
+    <div class="search">
+      <input id="q" type="search" placeholder="Park or playground name (e.g. McCarren, Fort Greene, Astoria)" autocomplete="off" aria-label="Search park name">
+    </div>
+    <p class="note">Matches the name the city recorded on the request. Parks with no complaints in the window will not appear.</p>
+    <div id="sugg" class="sugg"></div>
+    <div id="result" class="result"></div>
+  </section>
+
+  <section class="wrap block">
+    <div class="head"><div><div class="cap">By borough</div><h2>Where the backlog is</h2></div>
+      <span class="note">Open complaints located in a park. Bar: share of closed complaints closed without action.</span></div>
+    <div class="boros" id="boros"></div>
+  </section>
+
+  <section class="wrap block">
+    <div class="head"><div><div class="cap">Map</div><h2>Every park with a complaint</h2></div>
+      <span class="note">Dot size: open complaints. Colour: share closed without action. Hover or tap a dot.</span></div>
+    <div class="mapwrap" id="mapwrap">
+      <svg id="map" viewBox="0 0 1000 900" role="img" aria-label="Map of NYC parks by open 311 complaints"></svg>
+      <div class="tip" id="tip"></div>
+    </div>
+    <div class="legend" id="maplegend"></div>
+  </section>
+
+  <section class="wrap block">
+    <div class="head"><div><div class="cap">Worst backlog</div><h2>Parks with the most open complaints</h2></div>
+      <span class="note">Tap a column header to sort. The tick on each bar is the citywide in-park rate.</span></div>
+    <div class="sortbar" data-for="t-open"></div>
+    <div class="tablewrap"><table id="t-open"></table></div>
+    <div class="more"></div>
+  </section>
+
+  <section class="wrap block">
+    <div class="head"><div><div class="cap">Closed without action</div><h2>Parks where reports go nowhere</h2></div></div>
+    <p class="note">Share of closed complaints whose resolution says nothing was done. Only parks with at least 10 complaints in the window.</p>
+    <div class="sortbar" data-for="t-ghost"></div>
+    <div class="tablewrap"><table id="t-ghost"></table></div>
+    <div class="more"></div>
+  </section>
+
+  <section class="wrap block">
+    <div class="head"><div><div class="cap">By complaint type</div><h2>What gets fixed, what gets waved off</h2></div></div>
+    <p class="note">Every kind of in-park complaint with at least 30 requests: how often it is closed without action and how long a close takes.</p>
+    <div class="sortbar" data-for="t-types"></div>
+    <div class="tablewrap"><table id="t-types"></table></div>
+    <div class="more"></div>
+  </section>
+
+  <section class="wrap block">
+    <div class="head"><div><div class="cap">Week by week</div><h2>Reported versus closed</h2></div>
+      <span class="note" id="wknote"></span></div>
+    <div class="chartwrap" id="chartwrap">
+      <svg id="chart" viewBox="0 0 1000 340" role="img" aria-label="Weekly in-park complaints created versus closed"></svg>
+      <div class="tip" id="ctip"></div>
+    </div>
+    <div class="legend" id="chartlegend"></div>
+  </section>
+
+  <section class="wrap method">
+    <div class="cap">Methodology</div>
+    <h2>What the numbers mean</h2>
+    <details>
+      <summary>Which complaints count as "in a park"</summary>
+      <div class="body">
+      <p>All 311 requests handled by the Department of Parks and Recreation (agency code DPR) created in the window are pulled.
+      Most of them are about street trees on sidewalks, not parks. The scoreboard, map and weekly chart use only requests whose
+      location type is <em>Park</em>; the "all Parks Department requests" tile includes the trees.</p>
+      <p>The dataset has a <code>park_facility_name</code> field, but since 2025 it reads "Unspecified" on more than 99% of requests.
+      When a request is located in a park, the park's name is instead recorded as its incident address (for example "Baisley Pond Park"),
+      so that is used as the park name whenever it is not a numbered street address. Requests in a park that were logged with a street
+      address are counted in the borough and citywide totals but cannot be attributed to a named park.</p>
+      </div>
+    </details>
+    <details>
+      <summary>Closed without action</summary>
+      <div class="body">
+      <p>Share of <em>closed</em> requests whose resolution text says the agency did not observe the problem, found no violation,
+      could not find it, decided it was a duplicate, sent it to another agency, or otherwise closed it without describing a fix.
+      It is the same text heuristic used by the 311 Ghost Tracker on this site; the city publishes no official category. Some
+      closes really are correct (a dog off leash is gone by the time anyone arrives), so compare parks and complaint types
+      against each other rather than reading the number as a failure rate. A request is closed without action when its resolution matches:</p>
+      <ul class="pat" id="ghostpats"></ul>
+      <p>…unless it also contains a phrase indicating something was done, which overrides:</p>
+      <ul class="pat" id="actionpats"></ul>
+      </div>
+    </details>
+    <details>
+      <summary>Median days to close, open now, and the weekly chart</summary>
+      <div class="body">
+      <p>Half of closed requests were closed faster than the median, half slower. Under a day usually means the request was closed at
+      intake (duplicate, referral, "will inspect") rather than after a repair. <strong>Open now</strong> is every request in the window
+      whose status is not "Closed" as of the build time. The weekly chart counts in-park requests by the week they were created and by
+      the week they were closed; the first and last weeks are partial.</p>
+      </div>
+    </details>
+    <details>
+      <summary>Data and caveats</summary>
+      <div class="body">
+      <p>Data: NYC Open Data, <a href="https://data.cityofnewyork.us/Social-Services/311-Service-Requests-from-2010-to-Present/erm2-nwe9" rel="noopener">311 Service Requests (erm2-nwe9)</a>,
+      requests created in the window shown at the top of the page. The borough outline is from the city's
+      <a href="https://data.cityofnewyork.us/d/gthc-hcne" rel="noopener">Borough Boundaries</a> dataset, simplified. Everything is recomputed by <code>build.py</code>; there is no database and no manual editing.</p>
+      <p>Known limits: park names are matched exactly as the city spelled them, so the same park can appear under two spellings; a large park
+      like Flushing Meadows is often logged under the street inside it; dots on the map are the average location of that park's requests, not the park's centre.
+      Tables show the top 50 parks by each measure.</p>
+      <p>Source code and the build script are in the <a href="https://github.com/zyads/zohran" rel="noopener">zohran</a> repository.</p>
+      </div>
+    </details>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Data: <a href="https://data.cityofnewyork.us/Social-Services/311-Service-Requests-from-2010-to-Present/erm2-nwe9" rel="noopener">NYC Open Data, 311 Service Requests</a>, rebuilt nightly.</span>
+    <span><a href="https://github.com/zyads/zohran" rel="noopener">GitHub</a> · Static page. No accounts, no tracking, nothing stored.</span>
+  </div>
+</footer>
+
+<script>
+(function(){
+  // ---- theme
+  var root=document.documentElement;
+  try{var t=new URLSearchParams(location.search).get('theme')||localStorage.getItem('gt-theme');if(t)root.setAttribute('data-theme',t);}catch(e){}
+  document.getElementById('theme').onclick=function(){
+    var cur=root.getAttribute('data-theme');
+    var dark=cur?cur==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var next=dark?'light':'dark';root.setAttribute('data-theme',next);
+    try{localStorage.setItem('gt-theme',next);}catch(e){}
+  };
+  var reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var $=function(id){return document.getElementById(id);};
+
+  function fmt(n){return n==null?'—':Math.round(n).toLocaleString();}
+  function pct(n){return n==null?'—':n.toFixed(1)+'%';}
+  function days(n){if(n==null)return '—';if(n<1)return Math.round(n*24)+' h';return n.toFixed(1)+' d';}
+  function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+
+  function countUpText(el,target,render){
+    if(reduce||target==null){el.textContent=render(target||0);return;}
+    var t0=null,dur=600;
+    function step(ts){
+      if(!t0)t0=ts;var p=Math.min(1,(ts-t0)/dur);var e=1-Math.pow(1-p,3);
+      el.textContent=render(target*e);
+      if(p<1)requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  // Sequential single-hue ramp --line -> --accent for "bad" intensity; volume bars neutral.
+  function rampColor(f){return 'color-mix(in oklab, var(--accent) '+Math.round(25+75*f)+'%, var(--line))';}
+  function bar(v,max,kind,tick){
+    if(v==null)return '';
+    var f=Math.max(0,Math.min(1,v/max));
+    var fill=kind==='bad'?rampColor(f):'color-mix(in oklab, var(--accent2) 55%, var(--line))';
+    var tk='';
+    if(tick!=null){var tp=Math.max(0,Math.min(1,tick/max));tk='<span class="tick" style="left:'+(tp*100).toFixed(1)+'%" title="citywide"></span>';}
+    return '<span class="track" aria-hidden="true"><span class="fill" style="width:100%;--fill:'+fill+';transform:scaleX('+f.toFixed(3)+')"></span>'+tk+'</span>';
+  }
+
+  // Generic sortable table (same as ghost-tracker).
+  var LIMIT=25;
+  function table(el,rows,cols,defaultSort,rowKey,cityTick){
+    var state={key:defaultSort,dir:-1};var expanded=rows.length<=LIMIT+5;
+    function maxOf(k){var m=0;rows.forEach(function(r){if(r[k]!=null&&r[k]>m)m=r[k];});return m||1;}
+    var maxes={};cols.forEach(function(c){if(c.bar)maxes[c.key]=maxOf(c.key);});
+    var animated=false;
+    function render(){
+      var sorted=rows.slice().sort(function(a,b){
+        var x=a[state.key],y=b[state.key];
+        if(x==null&&y==null)return 0;if(x==null)return 1;if(y==null)return -1;
+        if(typeof x==='string')return x.localeCompare(y)*-state.dir;
+        return (x-y)*state.dir;
+      });
+      var h='<thead><tr>'+cols.map(function(c){
+        var s=c.key===state.key;
+        return '<th scope="col" data-k="'+c.key+'" class="'+(s?'sorted':'')+'" title="'+esc(c.title||'')+'" aria-sort="'+(s?(state.dir<0?'descending':'ascending'):'none')+'">'+esc(c.label)+(s?'<span class="arrow">'+(state.dir<0?'&#9660;':'&#9650;')+'</span>':'')+'</th>';
+      }).join('')+'</tr></thead><tbody>';
+      var shown=expanded?sorted:sorted.slice(0,LIMIT);
+      h+=shown.map(function(r,i){
+        var key=rowKey?rowKey(r):'';
+        var style=(!animated&&i<28)?' style="--i:'+i+'"':' style="animation:none"';
+        return '<tr data-key="'+esc(key)+'"'+style+'>'+cols.map(function(c){
+          var v=r[c.key],txt;
+          if(c.fmt)txt=c.fmt(v,r);else txt=esc(v==null?'—':v);
+          var inner=txt;
+          if(c.bar){
+            var tick=(cityTick&&c.tick)?cityTick[c.key]:null;
+            inner='<span class="cell">'+bar(v,maxes[c.key],c.bar,tick)+'<span class="v">'+txt+'</span></span>';
+          }
+          return '<td class="'+(c.cls||'num')+'" data-label="'+esc(c.label)+'">'+inner+'</td>';
+        }).join('')+'</tr>';
+      }).join('')+'</tbody>';
+      el.innerHTML=h;
+      animated=true;
+      var more=el.parentNode.nextElementSibling;
+      if(more&&more.classList.contains('more')){
+        more.innerHTML=expanded?'':'<button type="button">Show all '+rows.length+' rows</button>';
+        var mb=more.querySelector('button');if(mb)mb.onclick=function(){expanded=true;render();};
+      }
+      el.querySelectorAll('th').forEach(function(th){th.onclick=function(){
+        var k=th.getAttribute('data-k');
+        if(state.key===k)state.dir=-state.dir;else{state.key=k;state.dir=-1;}
+        render();syncBar();
+      };});
+    }
+    var sb=document.querySelector('.sortbar[data-for="'+el.id+'"]');
+    function syncBar(){if(!sb)return;sb.querySelector('select').value=state.key;sb.querySelector('button').textContent=state.dir<0?'High to low':'Low to high';}
+    if(sb){
+      sb.innerHTML='<span>Sort</span><select aria-label="Sort by">'+cols.map(function(c){return '<option value="'+c.key+'">'+esc(c.label)+'</option>';}).join('')+'</select><button type="button"></button>';
+      sb.querySelector('select').onchange=function(){state.key=this.value;state.dir=-1;render();syncBar();};
+      sb.querySelector('button').onclick=function(){state.dir=-state.dir;render();syncBar();};
+    }
+    render();syncBar();
+    return {rerender:render,expand:function(){if(!expanded){expanded=true;render();}}};
+  }
+  function pctWithN(v,r,k){return pct(v)+'<span class="sub">'+fmt(r[k])+'</span>';}
+  function parkName(v,r){return '<b>'+esc(v)+'</b><span class="sub">'+esc(r.borough)+' · '+esc((r.top||[]).join(', '))+'</span>';}
+
+  // ---- projection (same as the lanes map)
+  var W=1000,H=900,minLon=-74.27,maxLon=-73.68,minLat=40.49,maxLat=40.92;
+  var kk=Math.cos(40.7*Math.PI/180);
+  var s=Math.min(W/((maxLon-minLon)*kk),H/(maxLat-minLat));
+  var ox=(W-(maxLon-minLon)*kk*s)/2,oy=(H-(maxLat-minLat)*s)/2;
+  var X=function(lon){return ox+(lon-minLon)*kk*s;},Y=function(lat){return oy+(maxLat-lat)*s;};
+  var NS='http://www.w3.org/2000/svg';
+  function el(t,a){var e=document.createElementNS(NS,t);for(var k in a)e.setAttribute(k,a[k]);return e;}
+
+  function tipAt(tip,wrap,evt){
+    var r=wrap.getBoundingClientRect(),tw=tip.offsetWidth||220,th=tip.offsetHeight||90;
+    var x=evt.clientX-r.left+14,y=evt.clientY-r.top+14;
+    if(x+tw>r.width-8)x=Math.max(8,evt.clientX-r.left-tw-14);
+    if(y+th>r.height-8)y=Math.max(8,evt.clientY-r.top-th-14);
+    tip.style.left=x+'px';tip.style.top=y+'px';
+  }
+
+  var DATA=null,TABLES={};
+  fetch('data.json').then(function(r){return r.json();}).then(function(d){
+    DATA=d;
+    var c=d.citywide,ip=d.in_park;
+    var end=new Date(d.generated_at);
+    var fmtD=function(dt){return dt.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});};
+    $('meta').textContent='of '+fmt(ip.total)+' complaints located in a park · '+d.window_days+' days ending '+fmtD(end)+' · rebuilt '+d.generated_at.replace('T',' ').slice(0,16)+' UTC';
+    countUpText($('big-n'),ip.open,fmt);
+
+    var tiles=[
+      ['Closed without action',ip.ghost_pct,pct,fmt(ip.ghost)+' of '+fmt(ip.closed)+' closed in-park complaints'],
+      ['Median time to close',ip.median_days,days,'in-park complaints that were closed'],
+      ['Parks named',c.named_parks,fmt,'with at least one complaint in '+d.window_days+' days'],
+      ['All Parks Dept. requests',c.total,fmt,fmt(c.open)+' open, mostly street trees on sidewalks']
+    ];
+    $('tiles').innerHTML=tiles.map(function(t,i){return '<div class="stat"><div class="cap">'+esc(t[0])+'</div><div class="n" id="tile-'+i+'">0</div><div class="s">'+esc(t[3])+'</div></div>';}).join('');
+    tiles.forEach(function(t,i){countUpText($('tile-'+i),t[1],t[2]);});
+
+    // ---- boroughs
+    var order=['Manhattan','Brooklyn','Queens','Bronx','Staten Island'];
+    var maxOpen=Math.max.apply(null,order.map(function(b){return d.boroughs[b]?d.boroughs[b].in_park.open:0;}));
+    $('boros').innerHTML=order.map(function(b){
+      var s=d.boroughs[b]&&d.boroughs[b].in_park;if(!s)return '';
+      return '<div class="b"><div class="nm">'+esc(b)+'</div><div class="n">'+fmt(s.open)+'</div><div class="s">open of '+fmt(s.total)+' · '+pct(s.ghost_pct)+' closed w/o action · '+days(s.median_days)+' median</div>'+bar(s.ghost_pct,100,'bad',ip.ghost_pct)+'</div>';
+    }).join('');
+
+    // ---- map
+    var svg=$('map'),gLand=el('g',{}),gLbl=el('g',{}),gPts=el('g',{});
+    svg.appendChild(gLand);svg.appendChild(gPts);svg.appendChild(gLbl);
+    (d.borough_outline||[]).forEach(function(b){b.polys.forEach(function(poly){
+      gLand.appendChild(el('path',{'class':'land',d:'M'+poly.map(function(p){return X(p[0]).toFixed(1)+' '+Y(p[1]).toFixed(1);}).join('L')+'Z'}));
+    });});
+    var labels={'Manhattan':[-74.045,40.80],'Bronx':[-73.87,40.87],'Brooklyn':[-73.95,40.63],'Queens':[-73.80,40.72],'Staten Island':[-74.15,40.58]};
+    for(var n in labels){var tx=el('text',{'class':'lbl',x:X(labels[n][0]),y:Y(labels[n][1])});tx.textContent=n.toUpperCase();gLbl.appendChild(tx);}
+    var maxO=Math.max(1,d.parks.reduce(function(m,p){return Math.max(m,p.open);},0));
+    var ramp=[[0,'var(--line)'],[15,rampColor(.2)],[30,rampColor(.5)],[50,rampColor(.8)],[70,'var(--accent)']];
+    function mcol(g){if(g==null)return 'var(--muted)';var c=ramp[0][1];ramp.forEach(function(r){if(g>=r[0])c=r[1];});return c;}
+    var pts=d.parks.filter(function(p){return p.lat!=null;}).sort(function(a,b){return b.open-a.open;});
+    var tip=$('tip'),wrap=$('mapwrap'),cur=null;
+    function hide(){tip.style.display='none';if(cur){cur.classList.remove('on');cur=null;}}
+    pts.forEach(function(p){
+      var r=2.4+11*Math.sqrt(p.open/maxO);
+      var dot=el('circle',{'class':'dot',cx:X(p.lon).toFixed(1),cy:Y(p.lat).toFixed(1),r:r.toFixed(1),fill:mcol(p.ghost_pct),'data-name':p.name});
+      dot.__p=p;
+      function show(evt){
+        if(cur)cur.classList.remove('on');cur=dot;dot.classList.add('on');
+        tip.innerHTML='<b>'+esc(p.name)+'</b><div class="m">'+esc(p.borough)+'</div>'+fmt(p.open)+' open of '+fmt(p.total)+' · '+pct(p.ghost_pct)+' closed w/o action · median '+days(p.median_days)+'<div class="m">'+esc((p.top||[]).join(', '))+'</div>';
+        tip.style.display='block';tipAt(tip,wrap,evt);
+      }
+      dot.addEventListener('mouseenter',show);dot.addEventListener('mousemove',function(e){tipAt(tip,wrap,e);});
+      dot.addEventListener('mouseleave',hide);
+      dot.addEventListener('click',function(e){show(e);e.stopPropagation();});
+      gPts.appendChild(dot);
+    });
+    svg.addEventListener('click',hide);
+    var fit=function(){svg.setAttribute('viewBox',window.innerWidth<640?'330 20 520 720':'0 0 1000 900');};
+    fit();window.addEventListener('resize',fit);
+    $('maplegend').innerHTML=ramp.map(function(r,i){return '<span><span class="sw" style="background:'+r[1]+'"></span>'+(i<ramp.length-1?r[0]+'–'+ramp[i+1][0]+'%':r[0]+'%+')+'</span>';}).join('')+'<span class="m">closed without action · '+fmt(pts.length)+' parks</span>';
+
+    // ---- tables
+    var cityTick={ghost_pct:ip.ghost_pct};
+    var cols=[
+      {key:'open',label:'Open now',fmt:fmt,bar:'bad'},
+      {key:'total',label:'Complaints',fmt:fmt,bar:'vol'},
+      {key:'ghost_pct',label:'Closed w/o action',title:'% of closed complaints closed without action',fmt:function(v,r){return pctWithN(v,r,'ghost');},bar:'bad',tick:true},
+      {key:'median_days',label:'Median time to close',fmt:days}
+    ];
+    TABLES.open=table($('t-open'),d.top_open,[{key:'name',label:'Park',cls:'name',fmt:parkName}].concat(cols),'open',function(r){return r.name;},cityTick);
+    TABLES.ghost=table($('t-ghost'),d.top_ghost,[{key:'name',label:'Park',cls:'name',fmt:parkName}].concat([cols[2],cols[1],cols[0],cols[3]]),'ghost_pct',function(r){return r.name;},cityTick);
+    table($('t-types'),d.descriptors,[
+      {key:'descriptor',label:'Complaint',cls:'name',fmt:function(v,r){return '<b>'+esc(v)+'</b><span class="sub">'+esc(r.complaint_type)+'</span>';}},
+      {key:'total',label:'Complaints',fmt:fmt,bar:'vol'},
+      {key:'ghost_pct',label:'Closed w/o action',fmt:function(v,r){return pctWithN(v,r,'ghost');},bar:'bad',tick:true},
+      {key:'median_days',label:'Median time to close',fmt:days},
+      {key:'open',label:'Open now',fmt:fmt}
+    ],'total',null,cityTick);
+
+    // ---- weekly chart (two series, one axis; crosshair + tooltip)
+    var wk=d.weekly.slice(1,-1);  // drop partial first/last weeks
+    var CW=1000,CH=340,pl=54,pr=16,pt=16,pb=36;
+    var maxV=Math.max.apply(null,wk.map(function(w){return Math.max(w.created,w.closed);}));
+    var step=maxV>2000?500:maxV>800?200:maxV>400?100:50;var top=Math.ceil(maxV/step)*step;
+    var cx=function(i){return pl+(CW-pl-pr)*i/Math.max(1,wk.length-1);},cy=function(v){return pt+(CH-pt-pb)*(1-v/top);};
+    var ch=$('chart');
+    for(var v=0;v<=top;v+=step){
+      ch.appendChild(el('line',{'class':'grid',x1:pl,x2:CW-pr,y1:cy(v),y2:cy(v)}));
+      var ty=el('text',{'class':'ax',x:pl-8,y:cy(v)+4,'text-anchor':'end'});ty.textContent=v.toLocaleString();ch.appendChild(ty);
+    }
+    var every=Math.max(1,Math.round(wk.length/6));
+    wk.forEach(function(w,i){if(i%every===0||i===wk.length-1){var t=el('text',{'class':'ax',x:cx(i),y:CH-10,'text-anchor':i===wk.length-1?'end':i===0?'start':'middle'});t.textContent=new Date(w.week+'T00:00:00Z').toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'});ch.appendChild(t);}});
+    function path(k){return 'M'+wk.map(function(w,i){return cx(i).toFixed(1)+' '+cy(w[k]).toFixed(1);}).join('L');}
+    ch.appendChild(el('path',{'class':'ser',d:path('created'),stroke:'var(--accent)'}));
+    ch.appendChild(el('path',{'class':'ser',d:path('closed'),stroke:'var(--accent2)'}));
+    var xh=el('line',{'class':'xh',y1:pt,y2:CH-pb});ch.appendChild(xh);
+    var m1=el('circle',{r:4.5,fill:'var(--accent)',stroke:'var(--card)','stroke-width':2,style:'display:none'}),m2=el('circle',{r:4.5,fill:'var(--accent2)',stroke:'var(--card)','stroke-width':2,style:'display:none'});
+    ch.appendChild(m1);ch.appendChild(m2);
+    var ctip=$('ctip'),cwrap=$('chartwrap');
+    function cmove(evt){
+      var r=ch.getBoundingClientRect();var px=(evt.clientX-r.left)/r.width*CW;
+      var i=Math.max(0,Math.min(wk.length-1,Math.round((px-pl)/(CW-pl-pr)*(wk.length-1))));
+      var w=wk[i];xh.setAttribute('x1',cx(i));xh.setAttribute('x2',cx(i));xh.style.display='block';
+      m1.setAttribute('cx',cx(i));m1.setAttribute('cy',cy(w.created));m1.style.display='block';
+      m2.setAttribute('cx',cx(i));m2.setAttribute('cy',cy(w.closed));m2.style.display='block';
+      ctip.innerHTML='<b>Week of '+new Date(w.week+'T00:00:00Z').toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'})+'</b><br>'+fmt(w.created)+' reported · '+fmt(w.closed)+' closed';
+      ctip.style.display='block';tipAt(ctip,cwrap,evt);
+    }
+    function cleave(){xh.style.display='none';m1.style.display='none';m2.style.display='none';ctip.style.display='none';}
+    ch.addEventListener('mousemove',cmove);ch.addEventListener('mouseleave',cleave);
+    ch.addEventListener('touchstart',function(e){cmove(e.touches[0]);},{passive:true});ch.addEventListener('touchmove',function(e){cmove(e.touches[0]);},{passive:true});
+    $('chartlegend').innerHTML='<span><span class="ln" style="border-color:var(--accent)"></span>Reported</span><span><span class="ln" style="border-color:var(--accent2)"></span>Closed</span>';
+    var totC=wk.reduce(function(a,w){return a+w.created;},0),totX=wk.reduce(function(a,w){return a+w.closed;},0);
+    $('wknote').textContent=fmt(totC)+' reported, '+fmt(totX)+' closed over '+wk.length+' full weeks. In-park complaints only.';
+
+    $('ghostpats').innerHTML=d.heuristic.ghost_patterns.map(function(p){return '<li><code>'+esc(p)+'</code></li>';}).join('');
+    $('actionpats').innerHTML=d.heuristic.action_patterns.map(function(p){return '<li><code>'+esc(p)+'</code></li>';}).join('');
+  }).catch(function(e){$('meta').textContent='Could not load data.json — run build.py first. ('+e+')';});
+
+  // ---- fuzzy park search
+  var q=$('q'),out=$('result'),sugg=$('sugg');
+  function norm(s){return s.toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();}
+  function score(name,nq){
+    var n=norm(name);if(!nq)return 0;
+    if(n===nq)return 100;if(n.indexOf(nq)===0)return 90;if(n.indexOf(nq)>=0)return 80;
+    var toks=nq.split(' '),hit=0;toks.forEach(function(t){if(t&&n.indexOf(t)>=0)hit++;});
+    if(hit===toks.length)return 70;
+    // subsequence match for typos like "mcaren"
+    var i=0;for(var j=0;j<n.length&&i<nq.length;j++)if(n[j]===nq[i])i++;
+    if(i===nq.length&&nq.length>=4)return 40+hit*5;
+    return hit?30+hit*5:0;
+  }
+  function card(p){
+    var ip=DATA.in_park;
+    return '<div class="pcard"><h3>'+esc(p.name)+'</h3><div class="sub">'+esc(p.borough)+' · last '+DATA.window_days+' days</div>'+
+      '<div class="row"><div><div class="n">'+fmt(p.open)+'</div><div class="s">open now</div></div><div><div class="n">'+fmt(p.total)+'</div><div class="s">complaints</div></div>'+
+      '<div><div class="n">'+pct(p.ghost_pct)+'</div><div class="s">closed w/o action</div></div><div><div class="n">'+days(p.median_days)+'</div><div class="s">median to close</div></div></div>'+
+      '<div class="top">Most reported: <b>'+esc((p.top||[]).join(', ')||'—')+'</b>. Citywide in-park: '+pct(ip.ghost_pct)+' closed without action, '+days(ip.median_days)+' median.</div></div>';
+  }
+  function highlight(name){
+    document.querySelectorAll('tr.hit').forEach(function(tr){tr.classList.remove('hit');});
+    ['t-open','t-ghost'].forEach(function(id){var tr=document.querySelector('#'+id+' tr[data-key="'+name.replace(/"/g,'')+'"]');if(tr)tr.classList.add('hit');});
+    document.querySelectorAll('.dot').forEach(function(d){d.classList.toggle('dim',d.getAttribute('data-name')!==name);});
+  }
+  function pick(p){out.innerHTML=card(p);sugg.innerHTML='';highlight(p.name);}
+  function run(){
+    if(!DATA)return;
+    var nq=norm(q.value);
+    if(!nq){out.innerHTML='';sugg.innerHTML='';document.querySelectorAll('tr.hit').forEach(function(tr){tr.classList.remove('hit');});document.querySelectorAll('.dot.dim').forEach(function(d){d.classList.remove('dim');});return;}
+    var hits=DATA.parks.map(function(p){return [score(p.name,nq),p];}).filter(function(x){return x[0]>0;}).sort(function(a,b){return b[0]-a[0]||b[1].total-a[1].total;}).slice(0,8);
+    if(!hits.length){out.innerHTML='<div class="pcard"><div class="sub">No park matched. Try a shorter word, or check the spelling the city uses on <a href="https://www.nycgovparks.org/parks" rel="noopener">nycgovparks.org</a>.</div></div>';sugg.innerHTML='';return;}
+    pick(hits[0][1]);
+    sugg.innerHTML=hits.slice(1).map(function(h,i){return '<button type="button" data-i="'+i+'">'+esc(h[1].name)+' · '+esc(h[1].borough)+'</button>';}).join('');
+    sugg.querySelectorAll('button').forEach(function(b){b.onclick=function(){pick(hits[+b.getAttribute('data-i')+1][1]);};});
+  }
+  q.addEventListener('input',run);
+})();
+</script>
+</body>
+</html>
