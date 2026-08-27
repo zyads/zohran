@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>311 Ghost Tracker — where NYC 311 quietly gives up</title>
+<meta name="description" content="Which agencies and community boards close NYC 311 complaints without doing anything, and where the same problems keep getting reported. Built from public NYC Open Data.">
+<style>
+:root{
+  --bg:#f7f7f5;--fg:#1a1a1a;--muted:#5c5c5c;--card:#ffffff;--line:#e2e2de;
+  --accent:#2f5d8a;--bar:#c94f3a;--bar2:#d9a441;--bar3:#4c8a5c;--hl:#fff3c4;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#111315;--fg:#ebebe6;--muted:#a3a39c;--card:#1b1e21;--line:#2c3034;
+    --accent:#7fb0e0;--bar:#e06a55;--bar2:#e2b45a;--bar3:#6fb37f;--hl:#3a3410}
+}
+html[data-theme=light]{--bg:#f7f7f5;--fg:#1a1a1a;--muted:#5c5c5c;--card:#fff;--line:#e2e2de;--accent:#2f5d8a;--bar:#c94f3a;--bar2:#d9a441;--bar3:#4c8a5c;--hl:#fff3c4}
+html[data-theme=dark]{--bg:#111315;--fg:#ebebe6;--muted:#a3a39c;--card:#1b1e21;--line:#2c3034;--accent:#7fb0e0;--bar:#e06a55;--bar2:#e2b45a;--bar3:#6fb37f;--hl:#3a3410}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header,main,footer{max-width:1080px;margin:0 auto;padding:0 16px}
+header{padding-top:28px;display:flex;flex-wrap:wrap;gap:12px;align-items:baseline;justify-content:space-between}
+h1{font-size:1.9rem;margin:0;letter-spacing:-.01em}
+h1 small{display:block;font-size:1rem;font-weight:400;color:var(--muted)}
+h2{font-size:1.25rem;margin:36px 0 8px}
+p.lead{color:var(--muted);max-width:70ch}
+.meta{color:var(--muted);font-size:.85rem}
+button.toggle{background:none;border:1px solid var(--line);color:var(--fg);border-radius:6px;padding:6px 10px;cursor:pointer;font-size:.85rem}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:20px 0}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+.tile .n{font-size:1.7rem;font-weight:600;line-height:1.1}
+.tile .l{color:var(--muted);font-size:.85rem;margin-top:4px}
+.search{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0 16px}
+.search input{flex:1;min-width:220px;padding:10px 12px;font-size:1rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg)}
+.search select{padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);font-size:.95rem}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+table{border-collapse:collapse;width:100%;font-size:.92rem}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle}
+th{position:sticky;top:0;background:var(--card);cursor:pointer;user-select:none;font-weight:600;color:var(--muted)}
+th.sorted{color:var(--fg)}
+th .arrow{font-size:.7em;margin-left:4px}
+tr:last-child td{border-bottom:0}
+tr.hit td{background:var(--hl)}
+td.name{white-space:normal;min-width:160px}
+.bar{display:inline-block;height:10px;border-radius:3px;background:var(--bar);vertical-align:middle;margin-right:6px}
+.bar.b2{background:var(--bar2)}.bar.b3{background:var(--bar3)}
+.num{font-variant-numeric:tabular-nums}
+details{margin:16px 0;border:1px solid var(--line);border-radius:10px;background:var(--card);padding:10px 16px}
+summary{cursor:pointer;font-weight:600}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.85em;background:var(--bg);padding:1px 4px;border-radius:4px}
+ul.pat{columns:2;font-size:.85rem;margin:8px 0}
+@media (max-width:640px){ul.pat{columns:1} h1{font-size:1.5rem} .tile .n{font-size:1.4rem}}
+footer{padding:36px 16px 48px;color:var(--muted);font-size:.85rem}
+a{color:var(--accent)}
+.hidden{display:none}
+.note{font-size:.85rem;color:var(--muted);margin:6px 0 0}
+</style>
+</head>
+<body>
+<header>
+  <h1>311 Ghost Tracker <small>Where NYC 311 quietly gives up</small></h1>
+  <button class="toggle" id="theme" type="button">Toggle theme</button>
+</header>
+<main>
+  <p class="lead">Every NYC 311 request ends with a one-line resolution. A lot of them say some version of
+  "we looked, we didn't see it, closed." This page counts those. It scores every city agency and community board
+  on how often complaints are <strong>closed without action</strong> and how often the <strong>same problem is
+  reported again</strong> at the same address within 30 days of being closed. All numbers come straight from the
+  public 311 dataset on NYC Open Data; nothing here is private or estimated.</p>
+  <p class="meta" id="meta">Loading data…</p>
+
+  <div class="tiles" id="tiles"></div>
+
+  <h2>Look up your block or community board</h2>
+  <div class="search">
+    <input id="q" type="search" placeholder="Street address (e.g. 123 EAST 4 STREET) or board (e.g. 05 BRONX)" autocomplete="off">
+    <select id="scope">
+      <option value="all">Everything</option>
+      <option value="boards">Community boards</option>
+      <option value="addresses">Addresses</option>
+    </select>
+  </div>
+  <p class="note">Addresses are matched against the top re-reported addresses list below and highlighted; community boards are matched by number and borough.</p>
+  <div id="qresult" class="note"></div>
+
+  <h2>Agencies</h2>
+  <p class="note">Click a column header to sort. Bars are relative to the highest value in the column.</p>
+  <div class="tablewrap"><table id="t-agencies"></table></div>
+
+  <h2>Community boards</h2>
+  <p class="note">Community boards are the 59 local districts (plus a few catch-alls the city uses for unassigned requests). Requests are attributed to the board the city recorded.</p>
+  <div class="tablewrap"><table id="t-boards"></table></div>
+
+  <h2>Complaint types (by agency)</h2>
+  <p class="note">Only types with at least 200 requests in the window.</p>
+  <div class="tablewrap"><table id="t-types"></table></div>
+
+  <h2>Addresses that keep coming back</h2>
+  <p class="note">The 20 addresses where the most closed requests were followed by a new report of the same problem within 30 days.</p>
+  <div class="tablewrap"><table id="t-addresses"></table></div>
+
+  <h2>What the numbers mean</h2>
+  <details open>
+    <summary>Closed without action</summary>
+    <p>Share of <em>closed</em> requests whose resolution text says the agency did not observe the problem,
+    found no violation, could not get in, could not find it, decided it was a duplicate, sent it to another agency,
+    or otherwise closed it without describing a fix or enforcement. It is a text heuristic, not an official category:
+    the city does not publish one. A high rate is not proof of neglect. Some complaints really are unfounded, some
+    problems go away on their own, and noise complaints in particular are often over by the time anyone arrives.
+    But a district or agency that sits far above the citywide rate is a place where reporting a problem is unusually
+    unlikely to lead to anything.</p>
+  </details>
+  <details open>
+    <summary>Re-report rate</summary>
+    <p>Of requests that were closed, the share that were followed by a <em>new</em> request at the same address for the
+    same complaint type within 30 days of the close. This is the closest public signal for "it was not actually fixed."
+    Only closes that had a full 30 days of data after them are counted, so the most recent month of closes is excluded from this rate.
+    Matching is on the address string exactly as the city recorded it, so the rate undercounts problems reported with slightly different addresses or as a different complaint type. It also counts repeat callers: a handful of addresses file the same noise or parking complaint hundreds of times, which pushes the citywide rate up, especially for NYPD. Compare agencies and boards against each other rather than reading the absolute number as a fix-failure rate.</p>
+  </details>
+  <details open>
+    <summary>Median hours to close</summary>
+    <p>Half of closed requests were closed faster than this, half slower. A very short time (under an hour) usually means the request was
+    closed at intake, for instance as a duplicate or a referral, rather than after someone went out to look.</p>
+  </details>
+  <details>
+    <summary>Methodology and caveats</summary>
+    <p>Data: NYC Open Data, <a href="https://data.cityofnewyork.us/Social-Services/311-Service-Requests-from-2010-to-Present/erm2-nwe9" rel="noopener">311 Service Requests (erm2-nwe9)</a>,
+    requests <em>created</em> in the window shown at the top of the page. Everything is recomputed from scratch by <code>build.py</code>; there is no database and no manual editing.</p>
+    <p>A request is <strong>closed</strong> when its status is "Closed" and it has a closed date. It is <strong>closed without action</strong> when the resolution description matches any of these phrases:</p>
+    <ul class="pat" id="ghostpats"></ul>
+    <p>…unless it also contains a phrase indicating something was done, which overrides:</p>
+    <ul class="pat" id="actionpats"></ul>
+    <p>Known limits: the window is 90 days, so seasonal complaint types (heat, hydrants) skew the picture; agencies with a
+    lot of intake-level closes (duplicates, referrals) are counted the same as agencies that send an inspector;
+    "no violation" for a police noise call and "no violation" for a housing inspection are very different events but both count.
+    Agencies and boards with fewer than 100 requests are hidden. Requests with no address are excluded from re-report matching.</p>
+    <p>Source code and the build script are in the <a href="https://github.com/zyads/zohran" rel="noopener">zohran</a> repository. Public data only, no tracking, no accounts.</p>
+  </details>
+</main>
+<footer>Built from NYC Open Data. This page is static; regenerate it with <code>python3 build.py</code>.</footer>
+
+<script>
+(function(){
+  // ---- theme
+  var root=document.documentElement;
+  try{var t=localStorage.getItem('gt-theme');if(t)root.setAttribute('data-theme',t);}catch(e){}
+  document.getElementById('theme').onclick=function(){
+    var cur=root.getAttribute('data-theme');
+    var dark=cur?cur==='dark':window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var next=dark?'light':'dark';root.setAttribute('data-theme',next);
+    try{localStorage.setItem('gt-theme',next);}catch(e){}
+  };
+
+  function fmt(n){return n==null?'—':n.toLocaleString();}
+  function pct(n){return n==null?'—':n.toFixed(1)+'%';}
+  function hrs(n){if(n==null)return '—';if(n<1)return Math.round(n*60)+' min';if(n<48)return n.toFixed(1)+' h';return (n/24).toFixed(1)+' d';}
+  function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+
+  // Generic sortable table with CSS bars.
+  function table(el,rows,cols,defaultSort,rowKey){
+    var state={key:defaultSort,dir:-1};
+    function maxOf(k){var m=0;rows.forEach(function(r){if(r[k]!=null&&r[k]>m)m=r[k];});return m||1;}
+    function render(){
+      var sorted=rows.slice().sort(function(a,b){
+        var x=a[state.key],y=b[state.key];
+        if(x==null&&y==null)return 0;if(x==null)return 1;if(y==null)return -1;
+        if(typeof x==='string')return x.localeCompare(y)*-state.dir;
+        return (x-y)*state.dir;
+      });
+      var h='<thead><tr>'+cols.map(function(c){
+        var s=c.key===state.key;
+        return '<th data-k="'+c.key+'" class="'+(s?'sorted':'')+'" title="'+esc(c.title||'')+'">'+esc(c.label)+(s?'<span class="arrow">'+(state.dir<0?'▼':'▲')+'</span>':'')+'</th>';
+      }).join('')+'</tr></thead><tbody>';
+      var maxes={};cols.forEach(function(c){if(c.bar)maxes[c.key]=maxOf(c.key);});
+      h+=sorted.map(function(r){
+        var key=rowKey?rowKey(r):'';
+        return '<tr data-key="'+esc(key)+'">'+cols.map(function(c){
+          var v=r[c.key],txt;
+          if(c.fmt)txt=c.fmt(v,r);else txt=esc(v==null?'—':v);
+          var bar='';
+          if(c.bar&&v!=null){var w=Math.max(2,Math.round(60*v/maxes[c.key]));bar='<span class="bar '+(c.bar===true?'':c.bar)+'" style="width:'+w+'px"></span>';}
+          return '<td class="'+(c.cls||'num')+'">'+bar+txt+'</td>';
+        }).join('')+'</tr>';
+      }).join('')+'</tbody>';
+      el.innerHTML=h;
+      el.querySelectorAll('th').forEach(function(th){th.onclick=function(){
+        var k=th.getAttribute('data-k');
+        if(state.key===k)state.dir=-state.dir;else{state.key=k;state.dir=-1;}
+        render();
+      };});
+    }
+    render();
+    return {rerender:render};
+  }
+
+  var metricCols=[
+    {key:'total',label:'Requests',fmt:function(v){return fmt(v);},bar:'b3'},
+    {key:'ghost_pct',label:'Closed w/o action',title:'% of closed requests closed without action',fmt:function(v,r){return pct(v)+' <span class="meta">('+fmt(r.ghost)+')</span>';},bar:true},
+    {key:'rereport_pct',label:'Re-reported in 30d',title:'% of closes followed by a new report at the same address',fmt:function(v,r){return pct(v)+' <span class="meta">('+fmt(r.rereported)+')</span>';},bar:'b2'},
+    {key:'median_hours_to_close',label:'Median time to close',fmt:hrs},
+    {key:'closed_pct',label:'Closed',fmt:pct}
+  ];
+
+  var DATA=null;
+  fetch('data.json').then(function(r){return r.json();}).then(function(d){
+    DATA=d;
+    var c=d.citywide;
+    document.getElementById('meta').textContent='Requests created in the '+d.window_days+' days ending '+d.generated_at.slice(0,10)+' (UTC). Generated '+d.generated_at.replace('T',' ').slice(0,16)+' UTC.';
+    document.getElementById('tiles').innerHTML=[
+      ['Requests',fmt(c.total),'created in window'],
+      ['Closed',pct(c.closed_pct),fmt(c.closed)+' requests'],
+      ['Closed without action',pct(c.ghost_pct),fmt(c.ghost)+' of closed'],
+      ['Re-reported within 30 days',pct(c.rereport_pct),fmt(c.rereported)+' of '+fmt(c.rereport_eligible)+' eligible closes'],
+      ['Median time to close',hrs(c.median_hours_to_close),'citywide']
+    ].map(function(t){return '<div class="tile"><div class="l">'+t[0]+'</div><div class="n">'+t[1]+'</div><div class="l">'+t[2]+'</div></div>';}).join('');
+
+    table(document.getElementById('t-agencies'),d.agencies,
+      [{key:'agency',label:'Agency',cls:'name',fmt:function(v,r){return '<strong>'+esc(v)+'</strong><br><span class="meta">'+esc(r.name)+'</span>';}}].concat(metricCols),'total');
+    table(document.getElementById('t-boards'),d.community_boards,
+      [{key:'community_board',label:'Community board',cls:'name'}].concat(metricCols),'total',function(r){return r.community_board;});
+    table(document.getElementById('t-types'),d.complaint_types,
+      [{key:'complaint_type',label:'Complaint type',cls:'name'},{key:'agency',label:'Agency',cls:'name'}].concat(metricCols),'total');
+    table(document.getElementById('t-addresses'),d.top_addresses,[
+      {key:'address',label:'Address',cls:'name',fmt:function(v,r){return '<strong>'+esc(v)+'</strong><br><span class="meta">'+esc(r.borough||'')+' · '+esc((r.top_complaints||[]).join(', '))+'</span>';}},
+      {key:'rereported',label:'Re-reported closes',fmt:fmt,bar:'b2'},
+      {key:'total',label:'Requests',fmt:fmt,bar:'b3'},
+      {key:'closed',label:'Closed',fmt:fmt},
+      {key:'ghost_pct',label:'Closed w/o action',fmt:function(v,r){return pct(v)+' <span class="meta">('+fmt(r.ghost)+')</span>';},bar:true}
+    ],'rereported',function(r){return r.address;});
+
+    document.getElementById('ghostpats').innerHTML=d.heuristic.ghost_patterns.map(function(p){return '<li><code>'+esc(p)+'</code></li>';}).join('');
+    document.getElementById('actionpats').innerHTML=d.heuristic.action_patterns.map(function(p){return '<li><code>'+esc(p)+'</code></li>';}).join('');
+  }).catch(function(e){document.getElementById('meta').textContent='Could not load data.json — run build.py first. ('+e+')';});
+
+  // ---- lookup
+  var q=document.getElementById('q'),scope=document.getElementById('scope'),out=document.getElementById('qresult');
+  function norm(s){return s.toUpperCase().replace(/\s+/g,' ').trim();}
+  function normCB(s){ // "5 bronx", "05 BRONX", "bronx 5", "cb5 bx" -> "05 BRONX"
+    var m=norm(s).replace(/CB|COMMUNITY BOARD|DISTRICT/g,'').trim();
+    var num=(m.match(/\d{1,2}/)||[])[0];
+    var boro=(m.match(/MANHATTAN|BRONX|BROOKLYN|QUEENS|STATEN ISLAND|STATEN|BK|BX|MN|QN|SI/)||[])[0];
+    var map={BK:'BROOKLYN',BX:'BRONX',MN:'MANHATTAN',QN:'QUEENS',SI:'STATEN ISLAND',STATEN:'STATEN ISLAND'};
+    if(boro&&map[boro])boro=map[boro];
+    if(!num)return null;
+    return (num.length<2?'0'+num:num)+(boro?' '+boro:'');
+  }
+  function run(){
+    if(!DATA)return;
+    var v=q.value.trim();
+    document.querySelectorAll('tr.hit').forEach(function(tr){tr.classList.remove('hit');});
+    if(!v){out.textContent='';return;}
+    var msgs=[],first=null;
+    if(scope.value!=='addresses'){
+      var cb=normCB(v);
+      if(cb){DATA.community_boards.forEach(function(b){
+        if(b.community_board.indexOf(cb)===0){
+          var tr=document.querySelector('#t-boards tr[data-key="'+b.community_board.replace(/"/g,'')+'"]');
+          if(tr){tr.classList.add('hit');first=first||tr;}
+          msgs.push('<strong>'+esc(b.community_board)+'</strong>: '+fmt(b.total)+' requests, '+pct(b.ghost_pct)+' closed without action (citywide '+pct(DATA.citywide.ghost_pct)+'), '+pct(b.rereport_pct)+' re-reported (citywide '+pct(DATA.citywide.rereport_pct)+'), median '+hrs(b.median_hours_to_close)+' to close.');
+        }});}
+    }
+    if(scope.value!=='boards'){
+      var nv=norm(v);
+      DATA.top_addresses.forEach(function(a){
+        if(a.address.indexOf(nv)>=0){
+          var tr=document.querySelector('#t-addresses tr[data-key="'+a.address.replace(/"/g,'')+'"]');
+          if(tr){tr.classList.add('hit');first=first||tr;}
+          msgs.push('<strong>'+esc(a.address)+'</strong> ('+esc(a.borough)+'): '+fmt(a.total)+' requests, '+fmt(a.rereported)+' closes re-reported, '+pct(a.ghost_pct)+' closed without action.');
+        }});
+    }
+    if(!msgs.length){
+      msgs.push('No match. Addresses only match the top-20 list; for anything else, search the address directly on <a href="https://portal.311.nyc.gov/check-status/" rel="noopener">311</a> or <a href="https://data.cityofnewyork.us/Social-Services/311-Service-Requests-from-2010-to-Present/erm2-nwe9/data" rel="noopener">NYC Open Data</a>.');
+    }
+    out.innerHTML=msgs.join('<br>');
+    if(first&&document.activeElement===q&&window.innerWidth>640)first.scrollIntoView({block:'center',behavior:'smooth'});
+  }
+  q.addEventListener('input',run);scope.addEventListener('change',run);
+})();
+</script>
+</body>
+</html>
