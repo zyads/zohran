@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lane Blockage Map — NYC</title>
+<style>
+:root{--bg:#fafaf7;--fg:#1a1a1a;--muted:#5f6368;--line:#dcdcd6;--card:#fff;--accent:#0b5fa5;--hot:#c0392b;--warm:#e67e22;--cool:#2e86c1;--bus:#6c3483;--land:#ecebe4;--water:#fafaf7}
+@media(prefers-color-scheme:dark){:root{--bg:#121416;--fg:#e8e8e8;--muted:#9aa0a6;--line:#2c3136;--card:#1b1e21;--accent:#6cb4ee;--hot:#ff6b5b;--warm:#f5a453;--cool:#5dade2;--bus:#c39bd3;--land:#1f2428;--water:#121416}}
+*{box-sizing:border-box}
+body{margin:0;font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--fg)}
+main{max-width:980px;margin:0 auto;padding:16px}
+h1{font-size:1.6rem;margin:.2em 0}h2{font-size:1.15rem;margin:1.6em 0 .5em}
+p{margin:.5em 0}a{color:var(--accent)}
+.sub{color:var(--muted)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.tile b{display:block;font-size:1.5rem;line-height:1.2}.tile span{color:var(--muted);font-size:.85rem}
+.mapwrap{position:relative;background:var(--card);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+svg{display:block;width:100%;height:auto}
+.land{fill:var(--land);stroke:var(--line);stroke-width:.6}
+.pt{cursor:pointer;stroke:#0000;stroke-width:6}.pt:hover{stroke:var(--fg);stroke-opacity:.35}
+.seg{stroke:var(--bus);stroke-width:2.2;stroke-linecap:round;cursor:pointer;opacity:.9}
+.lbl{font-size:9px;fill:var(--muted);pointer-events:none;text-anchor:middle}
+.tip{position:absolute;pointer-events:none;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:6px 9px;font-size:.85rem;max-width:260px;box-shadow:0 2px 8px #0003;display:none;z-index:2}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:.85rem;color:var(--muted);margin:8px 0}
+.sw{display:inline-block;width:12px;height:12px;border-radius:50%;vertical-align:-1px;margin-right:4px}
+.controls{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:.9rem;margin:8px 0}
+table{width:100%;border-collapse:collapse;font-size:.9rem;background:var(--card);border:1px solid var(--line);border-radius:8px}
+th,td{padding:6px 8px;text-align:left;border-top:1px solid var(--line);vertical-align:top}
+th{border-top:0;color:var(--muted);font-weight:600;font-size:.8rem;text-transform:uppercase;letter-spacing:.03em}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.scroll{overflow-x:auto}
+.bar{height:8px;border-radius:4px;background:linear-gradient(90deg,var(--cool),var(--warm) 60%,var(--hot))}
+details{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin:10px 0}
+summary{cursor:pointer;font-weight:600}
+button{font:inherit;padding:4px 10px;border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:6px;cursor:pointer}
+button[aria-pressed=true]{background:var(--accent);color:#fff;border-color:var(--accent)}
+footer{color:var(--muted);font-size:.85rem;margin:30px 0 10px}
+</style>
+</head>
+<body>
+<main>
+<h1>Lane Blockage Map</h1>
+<p class="sub">Where New Yorkers report blocked bike lanes, how often those reports close with no action, and where buses crawl. Public data only, rebuilt from scratch each run.</p>
+
+<div class="tiles" id="tiles"></div>
+
+<div class="controls">
+  <label><input type="checkbox" id="showPts" checked> Bike-lane complaint hotspots</label>
+  <label><input type="checkbox" id="showBus" checked> Slowest bus segments</label>
+  <span id="boroBtns"></span>
+</div>
+<div class="mapwrap" id="mapwrap">
+  <svg id="map" viewBox="0 0 1000 900" role="img" aria-label="Map of NYC lane blockage hotspots"></svg>
+  <div class="tip" id="tip"></div>
+</div>
+<div class="legend">
+  <span>Dot size = number of complaints</span>
+  <span><i class="sw" style="background:var(--cool)"></i>mostly acted on</span>
+  <span><i class="sw" style="background:var(--warm)"></i>mixed</span>
+  <span><i class="sw" style="background:var(--hot)"></i>mostly closed without action</span>
+  <span><i class="sw" style="background:var(--bus);border-radius:2px;height:4px"></i>slowest bus segments</span>
+</div>
+
+<h2>By borough</h2>
+<div class="scroll"><table id="boroTbl"></table></div>
+
+<h2>Top hotspots <span class="sub" id="hsNote"></span></h2>
+<p class="sub">Each row is one grid cell of roughly 110 by 85 meters. "No action" is the share of closed reports whose resolution text says nothing was observed, no violation was found, or the report was referred or duplicated.</p>
+<div class="scroll"><table id="hsTbl"></table></div>
+<p><button id="moreHs">Show more</button></p>
+
+<h2>Slowest bus route segments <span class="sub" id="busNote"></span></h2>
+<p class="sub">Average speed between consecutive timepoints, weighted by number of bus trips, over the whole month (all hours, all days). Segments with fewer than 200 trips are left out.</p>
+<div class="scroll"><table id="busTbl"></table></div>
+
+<h2>Slowest routes overall</h2>
+<div class="scroll"><table id="routeTbl"></table></div>
+
+<h2>How this is made</h2>
+<details open><summary>Data and method, in plain words</summary>
+<p><b>Complaints.</b> Every NYC 311 request from the last <span id="mDays"></span> days whose descriptor is "Blocked Bike Lane" (complaint type "Illegal Parking"). 311 has no separate "blocked bus lane" category, so bus lanes are covered only through bus speeds below. Each complaint is snapped to a grid cell by rounding its latitude and longitude to three decimals; cells are ranked by count.</p>
+<p><b>Closed without action.</b> A closed request counts as "no action" when its resolution text matches phrases like "observed no violation", "no evidence", "not necessary", "unable to", "referred", "duplicate", or "does not fall under". It counts as "action" when the text mentions a summons, a correction, a tow, an arrest, or a report. Everything else is "other". This is a text heuristic, not an official measure; the exact patterns are in <code>build.py</code>.</p>
+<p><b>Bus speeds.</b> The MTA publishes hourly average travel time and distance for every route segment between timepoints. We take the latest full month, sum travel time and distance weighted by bus trips, and rank segments and routes by miles per hour. Slow segments include terminals, layovers, and stop dwell time, so a very low number does not by itself prove a blocked lane; it is a place to look.</p>
+<p><b>Map.</b> Points are placed with a simple flat projection over a simplified borough outline; it is not a street map. Use the address in the table to find a spot precisely.</p>
+<p><b>Sources.</b> <a id="src311">311 Service Requests</a> · <a id="srcBus">MTA Bus Route Segment Speeds</a> · <a id="srcBoro">Borough Boundaries</a>. Code: <a href="https://github.com/zyads/zohran">zyads/zohran</a>, directory <code>lanes/</code>. MIT licensed, no tracking.</p>
+</details>
+
+<footer id="gen"></footer>
+</main>
+<script>
+(async function(){
+const D = await (await fetch('data.json')).json();
+const $ = id => document.getElementById(id);
+const fmt = n => n.toLocaleString('en-US');
+const pct = r => r==null ? '—' : Math.round(r*100)+'%';
+
+// ---------- projection ----------
+const W=1000,H=900, minLon=-74.27,maxLon=-73.68, minLat=40.49,maxLat=40.92;
+const k=Math.cos(40.7*Math.PI/180);
+const sx=W/((maxLon-minLon)*k), sy=H/(maxLat-minLat), s=Math.min(sx,sy);
+const ox=(W-(maxLon-minLon)*k*s)/2, oy=(H-(maxLat-minLat)*s)/2;
+const X=lon=>ox+(lon-minLon)*k*s, Y=lat=>oy+(maxLat-lat)*s;
+
+// ---------- tiles ----------
+const T=D.totals;
+$('tiles').innerHTML=[
+ [fmt(T.complaints),'blocked bike lane reports, last '+D.window_days+' days'],
+ [pct(T.no_action_rate),'closed without action'],
+ [fmt(T.cells),'distinct grid cells reported'],
+ [D.bus.slowest_segments[0]?D.bus.slowest_segments[0].mph+' mph':'—','slowest bus segment, '+D.bus.month],
+].map(([b,s])=>`<div class="tile"><b>${b}</b><span>${s}</span></div>`).join('');
+$('mDays').textContent=D.window_days;
+$('src311').href=D.sources['311']; $('srcBus').href=D.sources.bus_speeds; $('srcBoro').href=D.sources.boroughs;
+$('gen').textContent='Built '+D.generated+' from 311 data since '+D.since+' and MTA speeds for '+D.bus.month+'.';
+$('hsNote').textContent='(top '+D.hotspots.length+' of '+fmt(T.cells)+' cells)';
+$('busNote').textContent='('+D.bus.month+', '+fmt(D.bus.segments_ranked)+' segments ranked)';
+
+// ---------- map ----------
+const svg=$('map'), NS='http://www.w3.org/2000/svg';
+const el=(t,a)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e};
+const gLand=el('g',{}),gSeg=el('g',{id:'gSeg'}),gPts=el('g',{id:'gPts'}),gLbl=el('g',{});
+svg.append(gLand,gSeg,gPts,gLbl);
+for(const b of D.borough_outline){
+  for(const poly of b.polys){
+    gLand.append(el('path',{class:'land',d:'M'+poly.map(p=>X(p[0]).toFixed(1)+' '+Y(p[1]).toFixed(1)).join('L')+'Z'}));
+  }
+}
+const labels={'Manhattan':[-73.985,40.79],'Bronx':[-73.87,40.87],'Brooklyn':[-73.95,40.63],'Queens':[-73.80,40.72],'Staten Island':[-74.15,40.58]};
+for(const n in labels){const t=el('text',{class:'lbl',x:X(labels[n][0]),y:Y(labels[n][1])});t.textContent=n.toUpperCase();gLbl.append(t)}
+const color=r=> r==null?'var(--muted)': r>=0.75?'var(--hot)': r>=0.5?'var(--warm)':'var(--cool)';
+const maxN=D.hotspots[0].n;
+const tip=$('tip'),wrap=$('mapwrap');
+function showTip(evt,html){tip.innerHTML=html;tip.style.display='block';move(evt)}
+function move(evt){const r=wrap.getBoundingClientRect();let x=evt.clientX-r.left+12,y=evt.clientY-r.top+12;if(x+270>r.width)x=Math.max(0,x-290);if(y+120>r.height)y=y-130;tip.style.left=x+'px';tip.style.top=y+'px'}
+function hide(){tip.style.display='none'}
+for(const s of D.bus.slowest_segments){
+  const l=el('line',{class:'seg',x1:X(s.lon1),y1:Y(s.lat1),x2:X(s.lon2),y2:Y(s.lat2),'data-boro':s.boro});
+  const h=`<b>${s.route} ${s.dir}</b> · ${s.mph} mph<br>${s.from} → ${s.to}<br><span class="sub">${s.miles} mi, ${fmt(s.trips)} trips in ${D.bus.month}</span>`;
+  l.addEventListener('pointerenter',e=>showTip(e,h));l.addEventListener('pointermove',move);l.addEventListener('pointerleave',hide);l.addEventListener('click',e=>{e.stopPropagation();showTip(e,h)});
+  gSeg.append(l);
+}
+[...D.hotspots].reverse().forEach(h=>{
+  const c=el('circle',{class:'pt',cx:X(h.lon).toFixed(1),cy:Y(h.lat).toFixed(1),r:(2.2+9*Math.sqrt(h.n/maxN)).toFixed(1),fill:color(h.rate),'fill-opacity':.75,'data-boro':h.boro});
+  const html=`<b>${h.addr||'(no address)'}</b><br>${h.n} reports · ${pct(h.rate)} closed without action<br><span class="sub">${h.desc} · ${h.boro} · busiest hour ${h.peak_hour}:00</span>`;
+  c.addEventListener('pointerenter',e=>showTip(e,html));c.addEventListener('pointermove',move);c.addEventListener('pointerleave',hide);c.addEventListener('click',e=>{e.stopPropagation();showTip(e,html)});
+  gPts.append(c);
+});
+document.addEventListener('click',hide);
+$('showPts').onchange=e=>gPts.style.display=e.target.checked?'':'none';
+$('showBus').onchange=e=>gSeg.style.display=e.target.checked?'':'none';
+let boroFilter='';
+const bb=$('boroBtns');
+for(const b of ['All','Manhattan','Brooklyn','Queens','Bronx','Staten Island']){
+  const btn=document.createElement('button');btn.textContent=b;btn.setAttribute('aria-pressed',b==='All');
+  btn.onclick=()=>{boroFilter=b==='All'?'':b;[...bb.children].forEach(x=>x.setAttribute('aria-pressed',x===btn));
+    for(const e of svg.querySelectorAll('[data-boro]'))e.style.opacity=(!boroFilter||e.dataset.boro===boroFilter)?'':'0.12';
+    renderHs();};
+  bb.append(btn);
+}
+
+// ---------- tables ----------
+const tbl=(id,head,rows)=>$(id).innerHTML='<thead><tr>'+head.map(h=>`<th class="${h.startsWith('#')?'num':''}">${h.replace(/^#/,'')}</th>`).join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+r.map(c=>`<td class="${typeof c==='number'||/^[\d.,%—]+( mph| h)?$/.test(String(c))?'num':''}">${c}</td>`).join('')+'</tr>').join('')+'</tbody>';
+const boros=Object.entries(D.boroughs).sort((a,b)=>b[1].n-a[1].n);
+tbl('boroTbl',['Borough','#Reports','#Closed w/o action','#Action taken','#Median hours to close','#Avg bus mph'],
+  boros.map(([b,s])=>[b,fmt(s.n),pct(s.rate),fmt(s.action),s.median_resolve_hours==null?'—':s.median_resolve_hours+' h',D.bus.borough_mph[b]!=null?D.bus.borough_mph[b]+' mph':'—']));
+let hsLimit=25;
+function renderHs(){
+  const rows=D.hotspots.filter(h=>!boroFilter||h.boro===boroFilter);
+  tbl('hsTbl',['#','Location','Borough','#Reports','#Closed w/o action','#Busiest hour'],
+    rows.slice(0,hsLimit).map((h,i)=>[i+1,h.addr||`${h.lat}, ${h.lon}`,h.boro,fmt(h.n),pct(h.rate),h.peak_hour+':00']));
+  $('moreHs').style.display=hsLimit<rows.length?'':'none';
+}
+renderHs();
+$('moreHs').onclick=()=>{hsLimit+=50;renderHs()};
+tbl('busTbl',['#','Route','Dir','From → To','Borough','#mph','#Miles','#Trips'],
+  D.bus.slowest_segments.map((s,i)=>[i+1,s.route,s.dir,`${s.from} → ${s.to}`,s.boro,s.mph,s.miles,fmt(s.trips)]));
+tbl('routeTbl',['#','Route','#Avg mph','#Trips in month'],D.bus.slowest_routes.map((r,i)=>[i+1,r.route,r.mph,fmt(r.trips)]));
+})();
+</script>
+</body>
+</html>
