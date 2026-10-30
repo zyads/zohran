@@ -9,6 +9,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  actions: write   # keepalive below
 concurrency:
   group: pages
   cancel-in-progress: true
@@ -26,6 +27,13 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
+      # GitHub pauses scheduled workflows after 60 days without repo activity (it happened
+      # on 2026-10-27). Re-enabling the workflow from inside the nightly run keeps it alive.
+      - name: Keep the nightly schedule alive
+        if: github.event_name == 'schedule'
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/pages.yml/enable"
+        env:
+          GH_TOKEN: ${{ github.token }}
   deploy:
     needs: build
     runs-on: ubuntu-latest
